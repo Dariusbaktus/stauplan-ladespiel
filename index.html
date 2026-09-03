@@ -114,6 +114,7 @@ footer{background:var(--navy);color:#B8C7D9;padding:26px 0;font-size:13.5px;text
     </div>
     <button class="act" id="btnSea2">Auslaufen und testen</button>
     <button class="act sec" id="btnReset">Neu beginnen</button>
+    <button class="act sec" id="btnSound" style="margin-top:8px;padding:9px 10px;font-size:13.5px">🔊 Hafenton: An</button>
     <div class="keys">Tastatur: ◀ ▶ bewegen · ▲ drehen · ▼ senken · Leertaste fallen lassen</div>
     <div class="metric" style="margin-top:16px;margin-bottom:0"><div class="k">Bestleistung</div><div class="v" id="mBest">—</div></div>
   </div>
@@ -402,11 +403,14 @@ function recompute(){
 }
 
 /* --- Ablauf --- */
+var departT = 0, DEPART_DUR = 230;
+
 function reset(){
   grid = emptyGrid();
   nextQ = [pickPiece(), pickPiece(), pickPiece()];
   heel = 0; heelTarget = 0; waveT = 0; rollT = 0; msg = null;
   shifted = []; shiftFlash = 0; shiftCount = 0;
+  departT = 0;
   state = 'play';
   recompute(); spawn(); render();
 }
@@ -432,7 +436,12 @@ function seaTrial(){
   // Ladung wandert nur in eine Richtung: einmal nach Lee gerutscht, kommt sie nicht zurück
   seaDir = Math.abs(stats.heel) > 0.4 ? (stats.heel > 0 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
   wx = WEATHER[Math.floor(Math.random() * WEATHER.length)];
-  state = 'sea'; rollT = 0; shiftCount = 0; render();
+  state = 'depart';
+  departT = 0;
+  rollT = 0;
+  shiftCount = 0;
+  playShipHorn();
+  render();
 }
 function finishSea(){
   if (Math.abs(stats.heel) > SHIFT_START || stats.gm < 0.80) endGame('sea');
@@ -489,22 +498,88 @@ function fit(){
   cv.dataset.scale = scale;
 }
 
-function sea(t, waterY){
-  var g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#0A2A41'); g.addColorStop(0.55, '#00263D'); g.addColorStop(1, '#001A2B');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  for (var l = 0; l < 3; l++){
-    ctx.beginPath(); ctx.moveTo(0, H);
-    for (var x = 0; x <= W; x += 8){
-      var y = (waterY - 8) + l * 20
-        + Math.sin((x / 110) + t / (28 + l * 9) + l) * (6 + l * 4)
-        + Math.sin((x / 47) - t / 20) * 2.2;
-      ctx.lineTo(x, y);
-    }
-    ctx.lineTo(W, H); ctx.closePath();
-    ctx.fillStyle = ['rgba(28,86,120,.50)', 'rgba(18,64,94,.62)', 'rgba(10,44,68,.82)'][l];
-    ctx.fill();
+/* ==========================================================================
+   AUDIO — Schiffshorn (Typhon) & Hafenglocke via Web Audio API
+   ========================================================================== */
+var audioCtx = null;
+var soundEnabled = true;
+
+function initAudio(){
+  if (!audioCtx){
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) audioCtx = new AC();
   }
+  if (audioCtx && audioCtx.state === 'suspended'){
+    audioCtx.resume();
+  }
+}
+
+function playShipHorn(){
+  if (!soundEnabled) return;
+  try {
+    initAudio();
+    if (!audioCtx) return;
+    var t = audioCtx.currentTime;
+
+    // Tiefes, sonores Doppelton-Schiffshorn (104 Hz & 107.5 Hz Schwebung)
+    var osc1 = audioCtx.createOscillator();
+    var osc2 = audioCtx.createOscillator();
+    var osc3 = audioCtx.createOscillator();
+    var sub  = audioCtx.createOscillator();
+
+    osc1.type = 'sawtooth';
+    osc1.frequency.setValueAtTime(104, t);
+    osc2.type = 'sawtooth';
+    osc2.frequency.setValueAtTime(107.5, t);
+    osc3.type = 'triangle';
+    osc3.frequency.setValueAtTime(208, t);
+    sub.type  = 'sine';
+    sub.frequency.setValueAtTime(52, t);
+
+    var filter = audioCtx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(460, t);
+    filter.frequency.exponentialRampToValueAtTime(280, t + 2.5);
+
+    var gain = audioCtx.createGain();
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.linearRampToValueAtTime(0.38, t + 0.22);
+    gain.gain.setValueAtTime(0.38, t + 1.8);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 3.2);
+
+    osc1.connect(filter);
+    osc2.connect(filter);
+    osc3.connect(filter);
+    sub.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc1.start(t);
+    osc2.start(t);
+    osc3.start(t);
+    sub.start(t);
+    osc1.stop(t + 3.3);
+    osc2.stop(t + 3.3);
+    osc3.stop(t + 3.3);
+    sub.stop(t + 3.3);
+
+    setTimeout(function(){
+      if (!soundEnabled || !audioCtx) return;
+      try {
+        var tb = audioCtx.currentTime;
+        var bell = audioCtx.createOscillator();
+        var bg = audioCtx.createGain();
+        bell.type = 'sine';
+        bell.frequency.setValueAtTime(920, tb);
+        bg.gain.setValueAtTime(0.08, tb);
+        bg.gain.exponentialRampToValueAtTime(0.0001, tb + 1.6);
+        bell.connect(bg);
+        bg.connect(audioCtx.destination);
+        bell.start(tb);
+        bell.stop(tb + 1.7);
+      } catch(e){}
+    }, 2200);
+  } catch(err){}
 }
 
 /* ---------- Ladungsformen ---------- */
@@ -627,67 +702,557 @@ function rr(x, y, w, h, r){
   ctx.closePath();
 }
 
-/* ---------- Szene ---------- */
-function render(){
-  if (!ctx) return;
-  var sc = parseFloat(cv.dataset.scale) || 1;
-  var cell = CELL * sc;
-  var holdW = COLS * cell, holdH = ROWS * cell;
-  var cx = W / 2, cy = H * 0.545;
-  var waterY = cy + holdH / 2 - 6 * sc;
+/* ---------- Szene & Grafiken ---------- */
 
-  ctx.clearRect(0, 0, W, H);
-  sea(waveT, waterY);
+function drawSkyAndHarbor(sc, W, H, t, quayOffset, isSea){
+  // 1. Himmel
+  var sky = ctx.createLinearGradient(0, 0, 0, H * 0.72);
+  sky.addColorStop(0, '#264B63');
+  sky.addColorStop(0.42, '#507993');
+  sky.addColorStop(0.78, '#91B0C4');
+  sky.addColorStop(1, '#C7D9E4');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, H);
 
-  var visualHeel = heel;
-  if (state === 'sea'){
-    var amp = rollAmplitude();
-    var period = Math.max(1.6, 5.2 - stats.gm * 0.9);
-    visualHeel = stats.heel + Math.sin(rollT / (period * 9)) * amp;
+  // 2. Weiche Wolkenschichten
+  ctx.fillStyle = 'rgba(255,255,255,.22)';
+  for (var i = 0; i < 4; i++){
+    var wx = ((i * 240 + t * (2.5 + i * 0.8)) % (W + 280)) - 140;
+    var wy = 32 * sc + i * 16 * sc;
+    ctx.beginPath();
+    ctx.arc(wx, wy, 44 * sc, 0, 7);
+    ctx.arc(wx + 34 * sc, wy - 10 * sc, 36 * sc, 0, 7);
+    ctx.arc(wx + 72 * sc, wy, 40 * sc, 0, 7);
+    ctx.fill();
   }
-  GEO = { sc:sc, cell:cell, cx:cx, cy:cy, holdW:holdW, holdH:holdH, heel:visualHeel };
 
-  var bob = (state === 'sea' ? Math.sin(waveT / 26) * 5 : 0);
+  // 3. Ferne Hafen-Silhouette
+  if (!isSea || quayOffset > -360 * sc){
+    var hAlpha = isSea ? Math.max(0, 1 - Math.abs(quayOffset) / (360 * sc)) : 1;
+    ctx.save();
+    ctx.globalAlpha = hAlpha * 0.55;
+    var px = quayOffset * 0.22;
+    var hY = H * 0.52;
+
+    // Silos und Speichergebäude
+    ctx.fillStyle = '#2A465B';
+    ctx.fillRect(px + 40 * sc, hY - 70 * sc, 85 * sc, 70 * sc);
+    ctx.fillRect(px + 140 * sc, hY - 50 * sc, 110 * sc, 50 * sc);
+    // Container-Kranbrücken in der Ferne
+    ctx.strokeStyle = '#223B4E';
+    ctx.lineWidth = 1.6 * sc;
+    for (var k = 0; k < 2; k++){
+      var kx = px + 280 * sc + k * 140 * sc;
+      ctx.beginPath();
+      ctx.moveTo(kx, hY);
+      ctx.lineTo(kx + 15 * sc, hY - 80 * sc);
+      ctx.lineTo(kx + 75 * sc, hY - 80 * sc);
+      ctx.lineTo(kx + 90 * sc, hY);
+      ctx.stroke();
+      // Ausleger
+      ctx.beginPath();
+      ctx.moveTo(kx - 25 * sc, hY - 72 * sc);
+      ctx.lineTo(kx + 120 * sc, hY - 72 * sc);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 4. Möwen
+  ctx.strokeStyle = 'rgba(255,255,255,.65)';
+  ctx.lineWidth = 1.4 * sc;
+  for (var m = 0; m < 3; m++){
+    var mx = ((m * 270 + t * 4.5) % (W + 100)) - 50;
+    var my = 48 * sc + m * 24 * sc + Math.sin(t * 0.2 + m) * 6 * sc;
+    var wing = Math.sin(t * 0.4 + m * 1.5) * 4 * sc;
+    ctx.beginPath();
+    ctx.moveTo(mx - 8 * sc, my + wing);
+    ctx.quadraticCurveTo(mx - 4 * sc, my - 3 * sc, mx, my);
+    ctx.quadraticCurveTo(mx + 4 * sc, my - 3 * sc, mx + 8 * sc, my + wing);
+    ctx.stroke();
+  }
+}
+
+function drawQuay(sc, quayX, waterY, isDeparting, departProg, t){
+  if (quayX < -260 * sc) return;
   ctx.save();
-  ctx.translate(cx, cy + bob);
+  var pierTopY = waterY - 145 * sc;
+  var pierEdgeX = quayX + 185 * sc;
+
+  // 1. Kaimauer-Körper
+  var qg = ctx.createLinearGradient(0, pierTopY, 0, waterY + 90 * sc);
+  qg.addColorStop(0, '#4B5863');
+  qg.addColorStop(0.65, '#2D3841');
+  qg.addColorStop(1, '#182128');
+  ctx.fillStyle = qg;
+  ctx.fillRect(-50 * sc, pierTopY, pierEdgeX + 50 * sc, waterY + 90 * sc - pierTopY);
+
+  // Betonfugen und Textur
+  ctx.strokeStyle = 'rgba(255,255,255,.07)';
+  ctx.lineWidth = 1.2 * sc;
+  for (var f = 0; f < pierEdgeX; f += 50 * sc){
+    ctx.beginPath(); ctx.moveTo(f, pierTopY); ctx.lineTo(f, waterY + 40 * sc); ctx.stroke();
+  }
+
+  // 2. Kranschienen auf dem Kai
+  var rail1 = quayX + 35 * sc, rail2 = quayX + 165 * sc;
+  ctx.fillStyle = '#1D252C';
+  ctx.fillRect(rail1 - 4 * sc, pierTopY - 2 * sc, 8 * sc, 4 * sc);
+  ctx.fillRect(rail2 - 4 * sc, pierTopY - 2 * sc, 8 * sc, 4 * sc);
+  ctx.fillStyle = '#8CA4B8';
+  ctx.fillRect(rail1 - 2 * sc, pierTopY - 4 * sc, 4 * sc, 2 * sc);
+  ctx.fillRect(rail2 - 2 * sc, pierTopY - 4 * sc, 4 * sc, 2 * sc);
+
+  // 3. Kaikante: Gelb-schwarze Warnmarkierung
+  var curbW = 14 * sc;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(pierEdgeX - curbW, pierTopY, curbW, 14 * sc);
+  ctx.clip();
+  ctx.fillStyle = '#E5B124';
+  ctx.fillRect(pierEdgeX - curbW, pierTopY, curbW, 14 * sc);
+  ctx.strokeStyle = '#1A2127';
+  ctx.lineWidth = 4.5 * sc;
+  for (var s = -20 * sc; s < 40 * sc; s += 9 * sc){
+    ctx.beginPath();
+    ctx.moveTo(pierEdgeX - curbW - 5 * sc, pierTopY + s);
+    ctx.lineTo(pierEdgeX + 5 * sc, pierTopY + s + 16 * sc);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 4. Schwerlast-Poller (Bollards)
+  var bollardY1 = pierTopY + 3 * sc;
+  ctx.fillStyle = '#161C22';
+  ctx.fillRect(pierEdgeX - 32 * sc, bollardY1 - 10 * sc, 14 * sc, 10 * sc);
+  ctx.fillRect(pierEdgeX - 37 * sc, bollardY1 - 13 * sc, 24 * sc, 4 * sc);
+  ctx.fillStyle = '#323D47';
+  ctx.fillRect(pierEdgeX - 31 * sc, bollardY1 - 9 * sc, 4 * sc, 8 * sc);
+
+  // 5. Gummifender an der Kaimauer
+  var fenderX = pierEdgeX + 4 * sc;
+  for (var fn = 0; fn < 2; fn++){
+    var fy = pierTopY + 45 * sc + fn * 65 * sc;
+    // Kette
+    ctx.strokeStyle = '#6A7D8C'; ctx.lineWidth = 1.5 * sc;
+    ctx.beginPath(); ctx.moveTo(pierEdgeX - 2 * sc, fy - 18 * sc); ctx.lineTo(fenderX + 5 * sc, fy); ctx.stroke();
+    // Fender-Zylinder
+    ctx.fillStyle = '#13181D';
+    rr(fenderX, fy - 16 * sc, 16 * sc, 32 * sc, 6 * sc);
+    ctx.fill();
+    ctx.fillStyle = '#2A343C';
+    ctx.fillRect(fenderX + 2 * sc, fy - 14 * sc, 4 * sc, 28 * sc);
+  }
+
+  // 6. Festmacher-Trossen (Mooring lines)
+  if (!isDeparting || departProg < 0.35){
+    var lineAlpha = isDeparting ? Math.max(0, 1 - (departProg - 0.15) / 0.20) : 1;
+    var slack = isDeparting ? (departProg / 0.35) * 22 * sc : 0;
+    ctx.save();
+    ctx.globalAlpha = lineAlpha;
+    ctx.strokeStyle = '#D4C4A3';
+    ctx.lineWidth = 2.4 * sc;
+    ctx.beginPath();
+    ctx.moveTo(pierEdgeX - 25 * sc, bollardY1 - 8 * sc);
+    ctx.quadraticCurveTo(pierEdgeX + 25 * sc, bollardY1 + 18 * sc + slack, pierEdgeX + 78 * sc, bollardY1 + 8 * sc + slack * 1.3);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+function drawCrane(sc, quayX, curXPixels, isDeparting, departProg, t, cell, hx, hy, ox, oy, deg){
+  if (quayX < -260 * sc) return;
+  ctx.save();
+  var craneX = quayX;
+  var rail1 = craneX + 35 * sc, rail2 = craneX + 165 * sc;
+  var portalDeckY = 165 * sc;
+  var boomY = 34 * sc;
+
+  // 1. Fahrwerke mit Rädern auf den Schienen
+  ctx.fillStyle = '#1B2A36';
+  ctx.fillRect(rail1 - 12 * sc, 230 * sc, 24 * sc, 8 * sc);
+  ctx.fillRect(rail2 - 12 * sc, 230 * sc, 24 * sc, 8 * sc);
+  ctx.fillStyle = '#3E576B';
+  ctx.fillRect(rail1 - 10 * sc, 232 * sc, 7 * sc, 5 * sc);
+  ctx.fillRect(rail1 + 3 * sc, 232 * sc, 7 * sc, 5 * sc);
+  ctx.fillRect(rail2 - 10 * sc, 232 * sc, 7 * sc, 5 * sc);
+  ctx.fillRect(rail2 + 3 * sc, 232 * sc, 7 * sc, 5 * sc);
+
+  // 2. Portalbeine (A-Frame Portal mit Durchfahrt)
+  ctx.strokeStyle = '#182C3A';
+  ctx.lineWidth = 7 * sc;
+  ctx.beginPath();
+  ctx.moveTo(rail1, 230 * sc); ctx.lineTo(craneX + 75 * sc, portalDeckY);
+  ctx.moveTo(rail2, 230 * sc); ctx.lineTo(craneX + 125 * sc, portalDeckY);
+  ctx.stroke();
+  ctx.strokeStyle = '#294357';
+  ctx.lineWidth = 3.5 * sc;
+  ctx.beginPath();
+  ctx.moveTo(rail1 + 10 * sc, 205 * sc); ctx.lineTo(rail2 - 10 * sc, 205 * sc);
+  ctx.moveTo(rail1 + 15 * sc, 205 * sc); ctx.lineTo(craneX + 100 * sc, portalDeckY);
+  ctx.moveTo(rail2 - 15 * sc, 205 * sc); ctx.lineTo(craneX + 100 * sc, portalDeckY);
+  ctx.stroke();
+
+  // 3. Drehkranz und Portalbühne
+  ctx.fillStyle = '#1A2F3E';
+  ctx.fillRect(craneX + 55 * sc, portalDeckY, 90 * sc, 12 * sc);
+  ctx.fillStyle = '#C74648';
+  ctx.fillRect(craneX + 55 * sc, portalDeckY + 10 * sc, 90 * sc, 3 * sc);
+
+  // 4. Maschinenhaus / Turm
+  var machX = craneX + 58 * sc, machY = 88 * sc, machW = 82 * sc, machH = 77 * sc;
+  ctx.fillStyle = '#1B2C39';
+  ctx.fillRect(machX, machY, machW, machH);
+  ctx.fillStyle = '#C74648';
+  ctx.fillRect(machX, machY + 28 * sc, machW, 8 * sc);
+  ctx.fillStyle = '#0F1A22';
+  ctx.fillRect(machX - 18 * sc, machY + 12 * sc, 18 * sc, 50 * sc);
+  ctx.strokeStyle = '#2B4354'; ctx.lineWidth = 1;
+  ctx.strokeRect(machX - 18 * sc, machY + 12 * sc, 18 * sc, 50 * sc);
+  ctx.fillStyle = '#0C161D';
+  for (var l = 0; l < 4; l++){
+    ctx.fillRect(machX + 8 * sc, machY + 45 * sc + l * 6 * sc, 30 * sc, 3 * sc);
+  }
+
+  // 5. Verglaste Kranführerkanzel
+  var cabX = machX + machW - 6 * sc, cabY = machY + 22 * sc, cabW = 28 * sc, cabH = 42 * sc;
+  ctx.fillStyle = '#152532';
+  ctx.fillRect(cabX, cabY, cabW, cabH);
+  ctx.fillStyle = 'rgba(95, 175, 215, 0.75)';
+  ctx.fillRect(cabX + 4 * sc, cabY + 4 * sc, cabW - 6 * sc, cabH * 0.58);
+  ctx.strokeStyle = '#0E1A22'; ctx.lineWidth = 1.2 * sc;
+  ctx.strokeRect(cabX + 4 * sc, cabY + 4 * sc, cabW - 6 * sc, cabH * 0.58);
+  ctx.fillStyle = '#0A1319';
+  ctx.beginPath();
+  ctx.arc(cabX + 16 * sc, cabY + 14 * sc, 4 * sc, 0, 7);
+  ctx.fill();
+
+  // 6. Kranausleger (Fachwerkausleger)
+  var boomStart = craneX + 115 * sc;
+  var boomEnd   = craneX + 780 * sc;
+  ctx.fillStyle = '#172B38';
+  ctx.fillRect(boomStart, boomY - 7 * sc, boomEnd - boomStart, 12 * sc);
+  ctx.fillStyle = '#264255';
+  ctx.fillRect(boomStart, boomY - 7 * sc, boomEnd - boomStart, 3 * sc);
+  ctx.strokeStyle = 'rgba(150,190,215,.4)';
+  ctx.lineWidth = 1.2 * sc;
+  for (var bt = boomStart; bt < boomEnd - 15 * sc; bt += 24 * sc){
+    ctx.beginPath();
+    ctx.moveTo(bt, boomY + 5 * sc);
+    ctx.lineTo(bt + 12 * sc, boomY - 7 * sc);
+    ctx.lineTo(bt + 24 * sc, boomY + 5 * sc);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = 'rgba(210,230,245,.65)';
+  ctx.lineWidth = 1.6 * sc;
+  ctx.beginPath();
+  ctx.moveTo(machX + 20 * sc, machY); ctx.lineTo(boomStart + 180 * sc, boomY - 7 * sc);
+  ctx.moveTo(machX + 20 * sc, machY); ctx.lineTo(boomStart + 360 * sc, boomY - 7 * sc);
+  ctx.stroke();
+
+  // 7. Laufkatze (Trolley)
+  var trolleyX = curXPixels;
+  if (isDeparting){
+    var homeX = craneX + 155 * sc;
+    trolleyX = curXPixels + (homeX - curXPixels) * Math.min(1, departProg * 2.2);
+  }
+  ctx.fillStyle = '#C74648';
+  ctx.fillRect(trolleyX - 16 * sc, boomY - 12 * sc, 32 * sc, 12 * sc);
+  ctx.fillStyle = '#1A2935';
+  ctx.fillRect(trolleyX - 12 * sc, boomY - 14 * sc, 24 * sc, 3 * sc);
+
+  // 8. Seil und Greifer / Ladung
+  if (state === 'play' && cur){
+    var rad = deg * Math.PI / 180;
+    var w = cur.s[0].length;
+    var lx = hx + (cur.x + w / 2) * cell;
+    var ly = hy + cur.y * cell;
+    var sx = ox + lx * Math.cos(rad) - ly * Math.sin(rad);
+    var sy = oy + lx * Math.sin(rad) + ly * Math.cos(rad);
+
+    ctx.strokeStyle = 'rgba(225,240,250,.9)';
+    ctx.lineWidth = 1.8 * sc;
+    ctx.beginPath();
+    ctx.moveTo(trolleyX - 5 * sc, boomY); ctx.lineTo(sx - 5 * sc, sy - 11 * sc);
+    ctx.moveTo(trolleyX + 5 * sc, boomY); ctx.lineTo(sx + 5 * sc, sy - 11 * sc);
+    ctx.stroke();
+
+    ctx.fillStyle = '#8396A3';
+    if (cur.p.k === 'bulk'){
+      ctx.beginPath();
+      ctx.moveTo(sx - 14 * sc, sy - 22 * sc); ctx.lineTo(sx + 14 * sc, sy - 22 * sc);
+      ctx.lineTo(sx + 6 * sc, sy - 6 * sc); ctx.lineTo(sx - 6 * sc, sy - 6 * sc);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = cur.p.c;
+      for (var i = 0; i < 7; i++){
+        var fy = sy - 4 * sc + ((t * 2.2 + i * 9) % (14 * sc));
+        ctx.beginPath();
+        ctx.arc(sx + Math.sin(i * 2.1 + t / 6) * 4 * sc, fy, 2 * sc, 0, 7);
+        ctx.fill();
+      }
+    } else {
+      ctx.fillRect(sx - 14 * sc, sy - 14 * sc, 28 * sc, 7 * sc);
+      ctx.strokeStyle = '#8396A3'; ctx.lineWidth = 2.6 * sc;
+      ctx.beginPath();
+      ctx.moveTo(sx - 12 * sc, sy - 8 * sc); ctx.lineTo(sx - 16 * sc, sy - 1 * sc);
+      ctx.moveTo(sx + 12 * sc, sy - 8 * sc); ctx.lineTo(sx + 16 * sc, sy - 1 * sc);
+      ctx.stroke();
+    }
+  } else if (isDeparting){
+    var hookY = boomY + 22 * sc + Math.sin(t * 0.1) * 3 * sc;
+    ctx.strokeStyle = 'rgba(225,240,250,.7)';
+    ctx.lineWidth = 1.6 * sc;
+    ctx.beginPath();
+    ctx.moveTo(trolleyX - 4 * sc, boomY); ctx.lineTo(trolleyX - 4 * sc, hookY);
+    ctx.moveTo(trolleyX + 4 * sc, boomY); ctx.lineTo(trolleyX + 4 * sc, hookY);
+    ctx.stroke();
+    ctx.fillStyle = '#8396A3';
+    ctx.fillRect(trolleyX - 10 * sc, hookY, 20 * sc, 6 * sc);
+    ctx.strokeStyle = '#8396A3'; ctx.lineWidth = 2.2 * sc;
+    ctx.beginPath();
+    ctx.arc(trolleyX, hookY + 10 * sc, 5 * sc, 0, Math.PI);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawShip(sc, cx, cy, visualHeel, shipSink, isDeparting, departProg, t, cell, holdW, holdH){
+  var hx = -holdW / 2, hy = -holdH / 2;
+  var beam = holdW + 64 * sc;
+  var deckY = hy - 22 * sc;
+  var botY = hy + holdH + 30 * sc;
+
+  ctx.save();
+  ctx.translate(cx, cy);
   ctx.rotate(visualHeel * Math.PI / 180);
 
-  var hx = -holdW / 2, hy = -holdH / 2;
-  var beam = holdW + 40 * sc, deckY = hy - 16 * sc, botY = hy + holdH + 26 * sc;
-
-  // Rumpf im Querschnitt
+  // -------------------------------------------------------------
+  // A. HINTERGRUND-AUFBAUTEN (Brücke & Schornstein links/achtern)
+  // -------------------------------------------------------------
+  var supX = -beam / 2 - 10 * sc;
+  // 1. Weißes Deckshaus (Aufbauten)
+  ctx.fillStyle = '#E8EFF4';
+  ctx.fillRect(supX, deckY - 95 * sc, 75 * sc, 95 * sc);
+  ctx.fillStyle = 'rgba(0,0,0,.08)';
+  ctx.fillRect(supX, deckY - 95 * sc, 6 * sc, 95 * sc);
+  ctx.strokeStyle = '#BDCDD6'; ctx.lineWidth = 1.5 * sc;
   ctx.beginPath();
-  ctx.moveTo(-beam / 2, deckY);
-  ctx.lineTo(beam / 2, deckY);
-  ctx.lineTo(beam / 2, botY - 40 * sc);
-  ctx.quadraticCurveTo(beam / 2, botY, beam / 2 - 44 * sc, botY);
-  ctx.lineTo(-beam / 2 + 44 * sc, botY);
-  ctx.quadraticCurveTo(-beam / 2, botY, -beam / 2, botY - 40 * sc);
+  ctx.moveTo(supX, deckY - 32 * sc); ctx.lineTo(supX + 75 * sc, deckY - 32 * sc);
+  ctx.moveTo(supX, deckY - 64 * sc); ctx.lineTo(supX + 75 * sc, deckY - 64 * sc);
+  ctx.stroke();
+  ctx.fillStyle = '#1D3B4E';
+  for (var row = 0; row < 2; row++){
+    for (var col = 0; col < 3; col++){
+      ctx.beginPath();
+      ctx.arc(supX + 16 * sc + col * 22 * sc, deckY - 18 * sc - row * 32 * sc, 3.2 * sc, 0, 7);
+      ctx.fill();
+    }
+  }
+  // Kommandobrücke mit Navigationsfenstern
+  ctx.fillStyle = '#153142';
+  ctx.fillRect(supX + 8 * sc, deckY - 88 * sc, 58 * sc, 14 * sc);
+  ctx.fillStyle = '#E8EFF4';
+  ctx.fillRect(supX - 12 * sc, deckY - 88 * sc, 14 * sc, 5 * sc);
+
+  // 2. GSL-Schornstein
+  var funX = supX + 22 * sc, funY = deckY - 128 * sc, funW = 28 * sc, funH = 36 * sc;
+  ctx.fillStyle = '#00263D';
+  ctx.beginPath();
+  ctx.moveTo(funX, funY + funH);
+  ctx.lineTo(funX + 3 * sc, funY);
+  ctx.lineTo(funX + funW, funY);
+  ctx.lineTo(funX + funW - 2 * sc, funY + funH);
   ctx.closePath();
-  var hg = ctx.createLinearGradient(0, deckY, 0, botY);
-  hg.addColorStop(0, '#33566B'); hg.addColorStop(0.62, '#20455C'); hg.addColorStop(1, '#14303F');
-  ctx.fillStyle = hg; ctx.fill();
-  ctx.strokeStyle = '#0A1D29'; ctx.lineWidth = 2.5 * sc; ctx.stroke();
+  ctx.fill();
+  ctx.fillStyle = '#C74648';
+  ctx.fillRect(funX + 1 * sc, funY + 11 * sc, funW - 1 * sc, 11 * sc);
+  ctx.fillStyle = '#11171C';
+  ctx.fillRect(funX + 2 * sc, funY - 2 * sc, funW - 1 * sc, 4 * sc);
 
-  // Laderaum-Innenraum
-  ctx.fillStyle = '#0B1F2B';
+  // 3. Signalmast mit drehendem Radar
+  ctx.strokeStyle = '#E8EFF4'; ctx.lineWidth = 2 * sc;
+  ctx.beginPath(); ctx.moveTo(supX + 42 * sc, deckY - 95 * sc); ctx.lineTo(supX + 42 * sc, deckY - 135 * sc); ctx.stroke();
+  var radW = Math.cos(t * 0.12) * 14 * sc;
+  ctx.strokeStyle = '#C74648'; ctx.lineWidth = 2.4 * sc;
+  ctx.beginPath(); ctx.moveTo(supX + 42 * sc - radW, deckY - 130 * sc); ctx.lineTo(supX + 42 * sc + radW, deckY - 130 * sc); ctx.stroke();
+
+  // 4. Dampfwolke beim Hornstoß (Typhon)
+  if (isDeparting && departProg < 0.40){
+    var steamAlpha = 0.85 * (1 - departProg / 0.40);
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, ' + steamAlpha + ')';
+    for (var sp = 0; sp < 6; sp++){
+      var stX = supX + 44 * sc + sp * 8 * sc + Math.sin(t * 0.3 + sp) * 4 * sc;
+      var stY = deckY - 136 * sc - sp * 10 * sc;
+      ctx.beginPath();
+      ctx.arc(stX, stY, (6 + sp * 3.5) * sc, 0, 7);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 5. Vorschiff / Bugkontur rechts
+  var bowX = beam / 2 + 8 * sc;
+  ctx.fillStyle = '#0D2433';
+  ctx.beginPath();
+  ctx.moveTo(beam / 2 - 20 * sc, deckY);
+  ctx.lineTo(bowX + 25 * sc, deckY - 16 * sc);
+  ctx.lineTo(bowX + 30 * sc, deckY + 40 * sc);
+  ctx.lineTo(beam / 2, deckY + 40 * sc);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#07121A';
+  ctx.beginPath(); ctx.arc(bowX + 10 * sc, deckY + 12 * sc, 5 * sc, 0, 7); ctx.fill();
+  ctx.fillStyle = '#3E505E';
+  ctx.fillRect(bowX + 8 * sc, deckY + 12 * sc, 4 * sc, 12 * sc);
+  ctx.strokeStyle = '#E8EFF4'; ctx.lineWidth = 1.4 * sc;
+  ctx.beginPath(); ctx.moveTo(bowX + 24 * sc, deckY - 16 * sc); ctx.lineTo(bowX + 24 * sc, deckY - 32 * sc); ctx.stroke();
+
+  // -------------------------------------------------------------
+  // B. RUMPF-AUSSENHAUT (Querschnitt & Farbteilung)
+  // -------------------------------------------------------------
+  var wlY = deckY + (botY - deckY) * 0.64;
+
+  function traceHull(){
+    ctx.beginPath();
+    ctx.moveTo(-beam / 2, deckY);
+    ctx.lineTo(beam / 2, deckY);
+    ctx.lineTo(beam / 2, botY - 44 * sc);
+    ctx.quadraticCurveTo(beam / 2, botY, beam / 2 - 48 * sc, botY);
+    ctx.lineTo(-beam / 2 + 48 * sc, botY);
+    ctx.quadraticCurveTo(-beam / 2, botY, -beam / 2, botY - 44 * sc);
+    ctx.closePath();
+  }
+
+  ctx.save();
+  traceHull();
+  ctx.clip();
+
+  // Überwasser-Rumpf (GSL Dunkelblau)
+  var og = ctx.createLinearGradient(0, deckY, 0, wlY);
+  og.addColorStop(0, '#1E384A');
+  og.addColorStop(0.5, '#122B3B');
+  og.addColorStop(1, '#091D2A');
+  ctx.fillStyle = og;
+  ctx.fillRect(-beam / 2 - 20 * sc, deckY - 10 * sc, beam + 40 * sc, wlY - deckY + 10 * sc);
+
+  // Weiße Wasserlinie (Bootstop)
+  ctx.fillStyle = '#F0F5F8';
+  ctx.fillRect(-beam / 2 - 20 * sc, wlY - 3 * sc, beam + 40 * sc, 6 * sc);
+
+  // Unterwasser-Rumpf (Antifouling Rot)
+  var ug = ctx.createLinearGradient(0, wlY, 0, botY);
+  ug.addColorStop(0, '#983032');
+  ug.addColorStop(0.5, '#7F2426');
+  ug.addColorStop(1, '#5E181A');
+  ctx.fillStyle = ug;
+  ctx.fillRect(-beam / 2 - 20 * sc, wlY + 3 * sc, beam + 40 * sc, botY - wlY + 20 * sc);
+
+  // Vertikale Schweißnähte
+  ctx.strokeStyle = 'rgba(255,255,255,.05)';
+  ctx.lineWidth = 1;
+  for (var sn = -beam / 2 + 40 * sc; sn < beam / 2; sn += 45 * sc){
+    ctx.beginPath(); ctx.moveTo(sn, deckY); ctx.lineTo(sn, botY); ctx.stroke();
+  }
+  ctx.restore();
+
+  traceHull();
+  ctx.strokeStyle = '#07151F';
+  ctx.lineWidth = 2.8 * sc;
+  ctx.stroke();
+
+  // Tiefgangsskalen (Draft marks)
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  ctx.font = '700 ' + Math.round(9 * sc) + 'px Inter, monospace';
+  ctx.textAlign = 'left';
+  for (var dm = 0; dm < 4; dm++){
+    var dY = wlY - 24 * sc + dm * 16 * sc;
+    var dVal = (10 - dm * 2) + 'm';
+    ctx.fillRect(beam / 2 - 16 * sc, dY, 6 * sc, 1.2 * sc);
+    ctx.fillText(dVal, beam / 2 - 38 * sc, dY + 3 * sc);
+  }
+
+  // -------------------------------------------------------------
+  // C. DECK, LUKENSÜLL & FALT-LUKENDECKEL
+  // -------------------------------------------------------------
+  ctx.fillStyle = '#2B3D4A';
+  ctx.fillRect(-beam / 2, deckY, beam, 6 * sc);
+
+  // Reling
+  ctx.strokeStyle = '#E0EBF2'; ctx.lineWidth = 1.2 * sc;
+  for (var r1 = -beam / 2 + 4 * sc; r1 < hx - 14 * sc; r1 += 16 * sc){
+    ctx.beginPath(); ctx.moveTo(r1, deckY); ctx.lineTo(r1, deckY - 15 * sc); ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(-beam / 2 + 2 * sc, deckY - 7 * sc); ctx.lineTo(hx - 12 * sc, deckY - 7 * sc);
+  ctx.moveTo(-beam / 2 + 2 * sc, deckY - 14 * sc); ctx.lineTo(hx - 12 * sc, deckY - 14 * sc);
+  ctx.stroke();
+  for (var r2 = hx + holdW + 20 * sc; r2 < beam / 2 - 4 * sc; r2 += 16 * sc){
+    ctx.beginPath(); ctx.moveTo(r2, deckY); ctx.lineTo(r2, deckY - 15 * sc); ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(hx + holdW + 18 * sc, deckY - 7 * sc); ctx.lineTo(beam / 2 - 2 * sc, deckY - 7 * sc);
+  ctx.moveTo(hx + holdW + 18 * sc, deckY - 14 * sc); ctx.lineTo(beam / 2 - 2 * sc, deckY - 14 * sc);
+  ctx.stroke();
+
+  // Lukensüll
+  var coamH = 18 * sc;
+  ctx.fillStyle = '#1D3444';
+  ctx.fillRect(hx - 10 * sc, deckY - coamH, 10 * sc, coamH + 6 * sc);
+  ctx.fillRect(hx + holdW, deckY - coamH, 10 * sc, coamH + 6 * sc);
+  ctx.fillStyle = '#39576D';
+  ctx.fillRect(hx - 12 * sc, deckY - coamH, 14 * sc, 3 * sc);
+  ctx.fillRect(hx + holdW - 2 * sc, deckY - coamH, 14 * sc, 3 * sc);
+
+  // Faltlukendeckel
+  for (var side = 0; side < 2; side++){
+    var fx = (side === 0) ? hx - 22 * sc : hx + holdW + 4 * sc;
+    ctx.fillStyle = '#2A4456';
+    ctx.fillRect(fx, deckY - coamH - 24 * sc, 8 * sc, 26 * sc);
+    ctx.fillRect(fx + 9 * sc, deckY - coamH - 22 * sc, 8 * sc, 24 * sc);
+    ctx.fillStyle = '#1B2E3B';
+    ctx.strokeRect(fx, deckY - coamH - 24 * sc, 8 * sc, 26 * sc);
+    ctx.strokeRect(fx + 9 * sc, deckY - coamH - 22 * sc, 8 * sc, 24 * sc);
+    ctx.strokeStyle = '#7E96A6'; ctx.lineWidth = 1.8 * sc;
+    ctx.beginPath();
+    ctx.moveTo(fx + 4 * sc, deckY - 4 * sc);
+    ctx.lineTo(fx + 12 * sc, deckY - coamH - 12 * sc);
+    ctx.stroke();
+  }
+
+  // -------------------------------------------------------------
+  // D. SCHNITT IN DEN LADERAUM (Hold #3 Cutaway)
+  // -------------------------------------------------------------
+  ctx.fillStyle = '#081722';
   ctx.fillRect(hx, hy, holdW, holdH);
+  ctx.fillStyle = '#102636';
+  for (var cor = 0; cor < COLS; cor++){
+    if (cor % 2 === 1){
+      ctx.fillRect(hx + cor * cell, hy, cell, holdH);
+    }
+  }
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  for (var cor2 = 0; cor2 < COLS; cor2++){
+    ctx.fillRect(hx + cor2 * cell, hy, 4 * sc, holdH);
+  }
 
-  // Struktur: Topside- und Hopper-Tanks
+  // Topside- und Hopper-Tanks
   for (var y = 0; y < ROWS; y++){
     for (var x = 0; x < COLS; x++){
       if (!isStruct(y, x)) continue;
       var px = hx + x * cell, py = hy + y * cell;
-      ctx.fillStyle = '#2A4E63';
+      ctx.fillStyle = '#224357';
       ctx.fillRect(px, py, cell, cell);
-      ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1;
       for (var d = -cell; d < cell * 2; d += 9 * sc){
         ctx.beginPath(); ctx.moveTo(px + d, py); ctx.lineTo(px + d + cell, py + cell); ctx.stroke();
       }
     }
   }
-  // Kante Struktur zu Laderaum
-  ctx.strokeStyle = 'rgba(160,190,210,.35)'; ctx.lineWidth = 1.6 * sc;
+  ctx.strokeStyle = 'rgba(165,200,225,.45)'; ctx.lineWidth = 2 * sc;
   for (var y2 = 0; y2 < ROWS; y2++){
     for (var x2 = 0; x2 < COLS; x2++){
       if (!isStruct(y2, x2)) continue;
@@ -700,11 +1265,11 @@ function render(){
   }
 
   // Tankdecke
-  ctx.strokeStyle = 'rgba(140,175,196,.28)'; ctx.lineWidth = 2 * sc;
+  ctx.strokeStyle = 'rgba(170,205,230,.5)'; ctx.lineWidth = 2.4 * sc;
   line(hx + 2 * cell, hy + holdH, hx + holdW - 2 * cell, hy + holdH);
 
   // Mittschiffslinie
-  ctx.strokeStyle = 'rgba(199,70,72,.42)'; ctx.setLineDash([5, 6]); ctx.lineWidth = 1.4;
+  ctx.strokeStyle = 'rgba(199,70,72,.45)'; ctx.setLineDash([5, 6]); ctx.lineWidth = 1.4;
   line(hx + holdW / 2, hy + cell, hx + holdW / 2, hy + holdH);
   ctx.setLineDash([]);
 
@@ -716,18 +1281,19 @@ function render(){
       cargo(hx + xx * cell, hy + yy * cell, cell, c.c, c.k, c.part, 1);
     }
   }
-  // verrutschte Ladung markieren
+
+  // Verrutschte Ladung
   if (shiftFlash > 0 && shifted.length){
     ctx.save();
-    ctx.strokeStyle = 'rgba(199,70,72,' + Math.min(1, shiftFlash / 60) + ')';
-    ctx.lineWidth = 2.6 * sc;
+    ctx.strokeStyle = 'rgba(199,70,72,' + Math.min(1, shiftFlash / 55) + ')';
+    ctx.lineWidth = 3 * sc;
     for (var si = 0; si < shifted.length; si++){
       ctx.strokeRect(hx + shifted[si][0] * cell + 1, hy + shifted[si][1] * cell + 1, cell - 2, cell - 2);
     }
     ctx.restore();
   }
 
-  // fallendes Kolli + Schattenriss
+  // Fallendes Kolli + Schattenriss
   if (state === 'play' && cur){
     var gv = ghostY();
     for (var py2 = 0; py2 < cur.s.length; py2++){
@@ -740,30 +1306,159 @@ function render(){
     }
   }
 
-  // Lukensüll auf Deck
-  ctx.fillStyle = '#3C6178';
-  ctx.fillRect(hx - 7 * sc, deckY - 13 * sc, 7 * sc, 15 * sc);
-  ctx.fillRect(hx + holdW, deckY - 13 * sc, 7 * sc, 15 * sc);
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
-  ctx.fillRect(hx - 7 * sc, deckY - 3 * sc, 7 * sc, 3 * sc);
-  ctx.fillRect(hx + holdW, deckY - 3 * sc, 7 * sc, 3 * sc);
   ctx.restore();
+}
 
-  // Wasserfläche vorn
+function drawWater(sc, W, H, waterY, t, isDeparting, departProg, cx, cy, beam, shipSink){
   ctx.save();
-  ctx.beginPath(); ctx.moveTo(0, waterY);
-  for (var wx = 0; wx <= W; wx += 8){ ctx.lineTo(wx, wave(wx, waterY)); }
-  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
-  ctx.fillStyle = 'rgba(6,36,57,.94)'; ctx.fill();
-  ctx.strokeStyle = 'rgba(130,180,210,.32)'; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(0, waterY);
-  for (var wx2 = 0; wx2 <= W; wx2 += 8){ ctx.lineTo(wx2, wave(wx2, waterY)); }
+
+  // 1. Schraubenwasser am Heck beim Ablegen
+  if (isDeparting && departProg > 0.15){
+    var washIntensity = Math.min(1, (departProg - 0.15) / 0.35);
+    var washX = cx - beam / 2 + 10 * sc;
+    var washY = waterY + 12 * sc;
+
+    ctx.save();
+    for (var b = 0; b < 18; b++){
+      var bRadius = (8 + b * 2.5) * sc * washIntensity;
+      var bx = washX - b * 11 * sc * washIntensity + Math.sin(t * 0.4 + b) * 12 * sc;
+      var by = washY + Math.cos(t * 0.5 + b * 2) * 9 * sc;
+      ctx.fillStyle = (b % 2 === 0) ? 'rgba(255,255,255,.75)' : 'rgba(175,225,245,.65)';
+      ctx.beginPath();
+      ctx.arc(bx, by, bRadius, 0, 7);
+      ctx.fill();
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,.8)';
+    ctx.lineWidth = 2.5 * sc;
+    for (var w = 0; w < 3; w++){
+      ctx.beginPath();
+      ctx.arc(washX - w * 18 * sc, washY, (14 + w * 12) * sc, 0.6, 2.8);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // 2. Wasserfläche vorn
+  var seaWaveAmp = (state === 'sea') ? 7 * wx.f : 3.5;
+  var wg = ctx.createLinearGradient(0, waterY, 0, H);
+  wg.addColorStop(0, 'rgba(14, 58, 86, 0.94)');
+  wg.addColorStop(0.4, 'rgba(8, 38, 59, 0.97)');
+  wg.addColorStop(1, '#03141F');
+
+  ctx.beginPath();
+  ctx.moveTo(0, waterY);
+  for (var wx = 0; wx <= W; wx += 8){
+    var wy = waterY + Math.sin(wx / 68 + t / 18) * seaWaveAmp + Math.sin(wx / 28 - t / 14) * (seaWaveAmp * 0.4);
+    ctx.lineTo(wx, wy);
+  }
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fillStyle = wg;
+  ctx.fill();
+
+  // Gischt- & Schaumkante
+  ctx.strokeStyle = 'rgba(180, 225, 245, 0.45)';
+  ctx.lineWidth = 1.8 * sc;
+  ctx.beginPath();
+  ctx.moveTo(0, waterY);
+  for (var wx2 = 0; wx2 <= W; wx2 += 8){
+    var wy2 = waterY + Math.sin(wx2 / 68 + t / 18) * seaWaveAmp + Math.sin(wx2 / 28 - t / 14) * (seaWaveAmp * 0.4);
+    ctx.lineTo(wx2, wy2);
+  }
   ctx.stroke();
+
+  // Wellenkronen auf See
+  if (state === 'sea' && wx.f > 0.9){
+    ctx.strokeStyle = 'rgba(255,255,255,.65)';
+    ctx.lineWidth = 2 * sc;
+    for (var c = 0; c < 5; c++){
+      var cxPos = ((c * 170 + t * 25) % (W + 80)) - 40;
+      var cyPos = waterY + 12 * sc + c * 18 * sc;
+      ctx.beginPath();
+      ctx.moveTo(cxPos - 12 * sc, cyPos);
+      ctx.quadraticCurveTo(cxPos, cyPos - 4 * sc, cxPos + 12 * sc, cyPos);
+      ctx.stroke();
+    }
+  }
+
   ctx.restore();
+}
 
-  crane(sc, cell, hx, hy, cx, cy + bob, visualHeel);
+function render(){
+  if (!ctx) return;
+  var sc = parseFloat(cv.dataset.scale) || 1;
+  var cell = CELL * sc;
+  var holdW = COLS * cell, holdH = ROWS * cell;
+  var beam = holdW + 64 * sc;
 
-  // Warnung „Ladung verrutscht"
+  var baseCx = W * 0.58;
+  var centerCx = W * 0.50;
+  var cx = baseCx;
+  var quayOffset = 0;
+  var departProg = 0;
+
+  if (state === 'play'){
+    cx = baseCx;
+    quayOffset = 0;
+    departProg = 0;
+  } else if (state === 'depart'){
+    var p = Math.min(1, departT / DEPART_DUR);
+    departProg = p;
+    var easeP = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
+    quayOffset = -easeP * 360 * sc;
+    cx = baseCx + (centerCx - baseCx) * easeP;
+    if (p > 0.15 && p < 0.65){
+      var push = Math.sin((p - 0.15) / 0.50 * Math.PI) * 16 * sc;
+      cx += push;
+    }
+  } else if (state === 'sea'){
+    cx = centerCx;
+    quayOffset = -420 * sc;
+    departProg = 1;
+  } else if (state === 'over'){
+    if (msg && (msg[2] === 'sea' || msg[2] === 'safe')){
+      cx = centerCx;
+      quayOffset = -420 * sc;
+      departProg = 1;
+    } else {
+      cx = baseCx;
+      quayOffset = 0;
+      departProg = 0;
+    }
+  }
+
+  var shipSink = Math.min(20 * sc, (stats.weight / DWT_MAX) * 20 * sc);
+  var cy = H * 0.535;
+  var waterY = cy + holdH / 2 - 8 * sc;
+
+  ctx.clearRect(0, 0, W, H);
+
+  drawSkyAndHarbor(sc, W, H, waveT, quayOffset, state === 'sea');
+  drawQuay(sc, quayOffset, waterY, state === 'depart', departProg, waveT);
+
+  var visualHeel = heel;
+  if (state === 'sea'){
+    var amp = rollAmplitude();
+    var period = Math.max(1.6, 5.2 - stats.gm * 0.9);
+    visualHeel = stats.heel + Math.sin(rollT / (period * 9)) * amp;
+  }
+  var bob = (state === 'sea' ? Math.sin(waveT / 24) * 6 : Math.sin(waveT / 35) * 1.5);
+  drawShip(sc, cx, cy + shipSink + bob, visualHeel, shipSink, state === 'depart', departProg, waveT, cell, holdW, holdH);
+
+  drawWater(sc, W, H, waterY, waveT, state === 'depart', departProg, cx, cy + shipSink + bob, beam, shipSink);
+
+  var hx = -holdW / 2, hy = -holdH / 2;
+  var rad = visualHeel * Math.PI / 180;
+  var curXPixels = cx;
+  if (cur){
+    var wCur = cur.s[0].length;
+    var lx = hx + (cur.x + wCur / 2) * cell;
+    var ly = hy + cur.y * cell;
+    curXPixels = cx + lx * Math.cos(rad) - ly * Math.sin(rad);
+  }
+  drawCrane(sc, quayOffset, curXPixels, state === 'depart', departProg, waveT, cell, hx, hy, cx, cy + shipSink + bob, visualHeel);
+
   if (shiftFlash > 0){
     var a = Math.min(1, shiftFlash / 55);
     ctx.save();
@@ -780,58 +1475,7 @@ function render(){
   hud();
 }
 
-function wave(x, waterY){
-  return waterY + Math.sin(x / 78 + waveT / 22) * 4.5 + Math.sin(x / 31 - waveT / 15) * 1.8;
-}
 function line(a, b, c, d){ ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.stroke(); }
-
-/* Kran am Kai: Ausleger, Laufkatze, Seil, Greifer */
-function crane(sc, cell, hx, hy, ox, oy, deg){
-  if (state !== 'play' || !cur) return;
-  var rad = deg * Math.PI / 180;
-  var w = cur.s[0].length;
-  var lx = hx + (cur.x + w / 2) * cell;
-  var ly = hy + cur.y * cell;
-  var sx = ox + lx * Math.cos(rad) - ly * Math.sin(rad);
-  var sy = oy + lx * Math.sin(rad) + ly * Math.cos(rad);
-
-  var beamY = 30 * sc;
-  ctx.save();
-  // Ausleger
-  ctx.fillStyle = '#16303F'; ctx.fillRect(0, beamY - 7 * sc, W, 12 * sc);
-  ctx.fillStyle = 'rgba(255,255,255,.10)'; ctx.fillRect(0, beamY - 7 * sc, W, 3 * sc);
-  ctx.strokeStyle = 'rgba(150,185,205,.35)'; ctx.lineWidth = 1;
-  for (var t = 0; t < W; t += 26 * sc){
-    ctx.beginPath(); ctx.moveTo(t, beamY + 5 * sc); ctx.lineTo(t + 13 * sc, beamY - 7 * sc); ctx.stroke();
-  }
-  // Laufkatze
-  ctx.fillStyle = '#C74648';
-  ctx.fillRect(sx - 15 * sc, beamY - 12 * sc, 30 * sc, 12 * sc);
-  // Seil
-  ctx.strokeStyle = 'rgba(215,230,240,.85)'; ctx.lineWidth = 1.6 * sc;
-  ctx.beginPath(); ctx.moveTo(sx, beamY); ctx.lineTo(sx, sy - 11 * sc); ctx.stroke();
-  // Greifer bzw. Schüttrohr
-  ctx.fillStyle = '#93A6B2';
-  if (cur.p.k === 'bulk'){
-    ctx.beginPath();
-    ctx.moveTo(sx - 13 * sc, sy - 22 * sc); ctx.lineTo(sx + 13 * sc, sy - 22 * sc);
-    ctx.lineTo(sx + 5 * sc, sy - 7 * sc); ctx.lineTo(sx - 5 * sc, sy - 7 * sc);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = cur.p.c;
-    for (var i = 0; i < 7; i++){
-      var fy = sy - 5 * sc + ((waveT * 2.2 + i * 9) % (14 * sc));
-      ctx.beginPath(); ctx.arc(sx + Math.sin(i * 2.1 + waveT / 6) * 4 * sc, fy, 1.9 * sc, 0, 7); ctx.fill();
-    }
-  } else {
-    ctx.fillRect(sx - 11 * sc, sy - 13 * sc, 22 * sc, 6 * sc);
-    ctx.strokeStyle = '#93A6B2'; ctx.lineWidth = 2.4 * sc;
-    ctx.beginPath();
-    ctx.moveTo(sx - 10 * sc, sy - 8 * sc); ctx.lineTo(sx - 15 * sc, sy - 1 * sc);
-    ctx.moveTo(sx + 10 * sc, sy - 8 * sc); ctx.lineTo(sx + 15 * sc, sy - 1 * sc);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
 
 function ghostY(){
   var gy = cur.y;
@@ -887,8 +1531,12 @@ function hud(){
     document.getElementById('btnSea').style.display = (msg[2] === 'voll') ? 'inline-block' : 'none';
   } else { ov.style.display = 'none'; }
   var sn = document.getElementById('seaNote');
-  sn.style.display = (state === 'sea') ? 'block' : 'none';
-  if (state === 'sea'){ sn.textContent = 'Auf See · ' + wx.n + ' — mal sehen, ob die Stauung hält …'; }
+  sn.style.display = (state === 'sea' || state === 'depart') ? 'block' : 'none';
+  if (state === 'depart'){
+    sn.textContent = 'Leinen los · Bulk Carrier legt vom Kai ab …';
+  } else if (state === 'sea'){
+    sn.textContent = 'Auf See · ' + wx.n + ' — mal sehen, ob die Stauung hält …';
+  }
 }
 
 function countCells(s){
@@ -915,6 +1563,14 @@ function loop(ts){
     fallAcc += dt;
     if (fallAcc > 850){ fallAcc = 0; step(); }
     render();
+  } else if (state === 'depart'){
+    departT += dt / 16;
+    heel += (heelTarget - heel) * 0.12;
+    render();
+    if (departT >= DEPART_DUR){
+      state = 'sea';
+      rollT = 0;
+    }
   } else if (state === 'sea'){
     rollT += dt / 16;
     seaAcc += dt;
@@ -927,9 +1583,9 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-
 initCanvas();
 document.addEventListener('keydown', function(e){
+  initAudio();
   var k = e.key;
   if (k === 'ArrowLeft'){ e.preventDefault(); move(-1); }
   else if (k === 'ArrowRight'){ e.preventDefault(); move(1); }
@@ -937,14 +1593,22 @@ document.addEventListener('keydown', function(e){
   else if (k === 'ArrowDown'){ e.preventDefault(); step(); }
   else if (k === ' '){ e.preventDefault(); drop(); }
 });
-document.getElementById('kL').onclick = function(){ move(-1); };
-document.getElementById('kR').onclick = function(){ move(1); };
-document.getElementById('kT').onclick = function(){ turn(); };
-document.getElementById('kD').onclick = function(){ drop(); };
-document.getElementById('btnReset').onclick = function(){ reset(); };
-document.getElementById('btnAgain').onclick = function(){ reset(); };
-document.getElementById('btnSea').onclick = function(){ seaTrial(); };
-document.getElementById('btnSea2').onclick = function(){ seaTrial(); };
+document.getElementById('kL').onclick = function(){ initAudio(); move(-1); };
+document.getElementById('kR').onclick = function(){ initAudio(); move(1); };
+document.getElementById('kT').onclick = function(){ initAudio(); turn(); };
+document.getElementById('kD').onclick = function(){ initAudio(); drop(); };
+document.getElementById('btnReset').onclick = function(){ initAudio(); reset(); };
+document.getElementById('btnAgain').onclick = function(){ initAudio(); reset(); };
+document.getElementById('btnSea').onclick = function(){ initAudio(); seaTrial(); };
+document.getElementById('btnSea2').onclick = function(){ initAudio(); seaTrial(); };
+var btnS = document.getElementById('btnSound');
+if (btnS){
+  btnS.onclick = function(){
+    soundEnabled = !soundEnabled;
+    this.textContent = soundEnabled ? '🔊 Hafenton: An' : '🔇 Hafenton: Aus';
+    if (soundEnabled) initAudio();
+  };
+}
 
 reset();
 requestAnimationFrame(loop);
