@@ -121,32 +121,13 @@ footer{background:var(--navy);color:#B8C7D9;padding:26px 0;font-size:13.5px;text
 
 </div></div>
 
-<div class="info"><div class="wrap">
-  <h2>Warum das kein Tetris ist</h2>
-  <div class="rule"></div>
-  <p style="max-width:740px;color:#41505C;font-size:17px">Beim Beladen zählt nicht, ob alles reinpasst. Es zählt, <b>wo</b> es liegt. Ein Laderaum kann randvoll und trotzdem falsch beladen sein — dann kippt das Schiff, oder es rollt so hart, dass sich die Laschung löst. Genau deshalb macht das ein Mensch und keine Software.</p>
-  <div class="cols">
-    <div class="c"><h3>Schwerpunkt</h3><p>Schweres nach unten, Leichtes nach oben. Jede Tonne weit oben hebt den Gesamtschwerpunkt — und je höher der liegt, desto weniger richtet sich das Schiff nach einer Welle wieder auf.</p></div>
-    <div class="c"><h3>Krängung</h3><p>Ungleich verteiltes Gewicht erzeugt Schlagseite. Ein paar Grad sind Alltag. Ab etwa fünf Grad fängt loses Gut an zu rutschen — und dann wird es sehr schnell sehr ernst.</p></div>
-    <div class="c"><h3>Ladungsverschiebung</h3><p>Das Tückische: Rutscht Ladung nach Lee, verschiebt sie den Schwerpunkt weiter zur selben Seite. Die Krängung wird größer, also rutscht mehr. Diese Rückkopplung hat Schiffe verloren gehen lassen. Im Spiel siehst du sie rot aufblitzen.</p></div>
-    <div class="c"><h3>GM</h3><p>Die metazentrische Höhe. Zu klein: das Schiff ist rangig und kentergefährdet. Zu groß: es ist steif und rollt so hart, dass Ladung und Laschung leiden. Die Kunst liegt dazwischen.</p></div>
-    <div class="c"><h3>Broken Stowage</h3><p>Der Raum, der zwischen den Kolli verlorengeht. Bei Break Bulk sind zehn bis zwanzig Prozent normal. Jeder Prozentpunkt weniger ist bezahlte Fracht.</p></div>
-    <div class="c"><h3>Die Ladungen</h3><p>Coils sind schwer und klein, Zellstoffballen leicht und sperrig, ein Rotorblatt wiegt fast nichts und ist trotzdem das schwierigste Stück an Bord. Genau das laden wir ab Brake und Wismar.</p></div>
-    <div class="c"><h3>Schüttgut fließt</h3><p>Getreide und loser Zellstoff lassen sich nicht stapeln. Sie suchen sich ihren Platz selbst, füllen Lücken und bilden eine Böschung. Deshalb kommen sie zuerst in den Raum — und deshalb kann man sie nicht drehen.</p></div>
-    <div class="c"><h3>Warum der Raum achteckig ist</h3><p>Oben die Topside-Tanks, unten die Hopper-Tanks. Diese Schrägen sind das Erkennungszeichen eines Bulk Carriers: Sie lassen Schüttgut von selbst zur Mitte rutschen und machen den Laderaum steifer. Für Stückgut sind sie ein Ärgernis — in den Ecken bleibt Raum ungenutzt.</p></div>
-    <div class="c"><h3>Das Wetter</h3><p>Vor dem Auslaufen weiß niemand, was auf der Route steht. Ruhige See, mäßige Dünung oder schwerer Nordatlantik — der Stauplan muss auch den schlechten Fall aushalten. Deshalb wird für die Bedingungen gestaut, die kommen können, nicht für die, die man sich wünscht.</p></div>
-    <div class="c"><h3>Und in echt?</h3><p>Dann kommen Tankdeckenbelastung, Laschpläne, Gefahrgut-Trennung und die Frage dazu, in welcher Reihenfolge in vier Häfen gelöscht wird. Dafür gibt es uns.</p></div>
-  </div>
-  <p style="margin-top:26px;font-size:14px;color:var(--muted);max-width:740px">Vereinfachte Darstellung zu Anschauungszwecken. Die Zahlen sind so gewählt, dass die Zusammenhänge sichtbar werden — sie ersetzen keine Stabilitätsberechnung.</p>
-</div></div>
-
 <footer>Global Shipping &amp; Logistics GmbH · Schüsselkorb 3 · 28195 Bremen · Prototyp vom 19.08.2026</footer>
 
 <script>
 /* ===== Stauplan — Spiellogik ===== */
 'use strict';
 
-var COLS = 9, ROWS = 9, CELL = 40;
+var COLS = 9, ROWS = 9, CELL = 32;
 var KM = 8.8;            // Metazentrum über Kiel (m)
 var HOLD_DEPTH = 9.5;    // Laderaumhöhe (m)
 var LIGHTSHIP = 9000;    // Leergewicht Handysize (t)
@@ -490,7 +471,7 @@ function fit(){
   var box = cv.parentNode.getBoundingClientRect();
   var w = Math.max(320, Math.min(820, box.width));
   var scale = Math.min(1, w / 820);
-  W = w; H = Math.round(600 * scale);
+  W = w; H = Math.round(580 * scale);
   var dpr = window.devicePixelRatio || 1;
   cv.width = W * dpr; cv.height = H * dpr;
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -702,68 +683,69 @@ function rr(x, y, w, h, r){
   ctx.closePath();
 }
 
-/* ---------- Szene & Grafiken ---------- */
+/* ---------- Szene & Grafiken (Seitenansicht & Glaswand-Schnitt) ---------- */
 
 function drawSkyAndHarbor(sc, W, H, t, quayOffset, isSea){
-  // 1. Himmel
+  // 1. Himmel mit Meereslicht-Gradient
   var sky = ctx.createLinearGradient(0, 0, 0, H * 0.72);
-  sky.addColorStop(0, '#264B63');
-  sky.addColorStop(0.42, '#507993');
-  sky.addColorStop(0.78, '#91B0C4');
-  sky.addColorStop(1, '#C7D9E4');
+  sky.addColorStop(0, '#1E3B4D');
+  sky.addColorStop(0.38, '#466F88');
+  sky.addColorStop(0.72, '#87ABBF');
+  sky.addColorStop(1, '#C7DCE8');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
-  // 2. Weiche Wolkenschichten
-  ctx.fillStyle = 'rgba(255,255,255,.22)';
+  // 2. Weiche Wolkenbänke
+  ctx.fillStyle = 'rgba(255,255,255,.24)';
   for (var i = 0; i < 4; i++){
-    var wx = ((i * 240 + t * (2.5 + i * 0.8)) % (W + 280)) - 140;
-    var wy = 32 * sc + i * 16 * sc;
+    var wx = ((i * 240 + t * (2.4 + i * 0.7)) % (W + 280)) - 140;
+    var wy = 28 * sc + i * 16 * sc;
     ctx.beginPath();
     ctx.arc(wx, wy, 44 * sc, 0, 7);
-    ctx.arc(wx + 34 * sc, wy - 10 * sc, 36 * sc, 0, 7);
+    ctx.arc(wx + 34 * sc, wy - 9 * sc, 36 * sc, 0, 7);
     ctx.arc(wx + 72 * sc, wy, 40 * sc, 0, 7);
     ctx.fill();
   }
 
-  // 3. Ferne Hafen-Silhouette
+  // 3. Ferne Hafen-Silhouette im Hintergrund (verschwindet auf See)
   if (!isSea || quayOffset > -360 * sc){
     var hAlpha = isSea ? Math.max(0, 1 - Math.abs(quayOffset) / (360 * sc)) : 1;
     ctx.save();
-    ctx.globalAlpha = hAlpha * 0.55;
-    var px = quayOffset * 0.22;
-    var hY = H * 0.52;
+    ctx.globalAlpha = hAlpha * 0.50;
+    var px = quayOffset * 0.28;
+    var hY = H * 0.58;
 
-    // Silos und Speichergebäude
-    ctx.fillStyle = '#2A465B';
-    ctx.fillRect(px + 40 * sc, hY - 70 * sc, 85 * sc, 70 * sc);
-    ctx.fillRect(px + 140 * sc, hY - 50 * sc, 110 * sc, 50 * sc);
-    // Container-Kranbrücken in der Ferne
-    ctx.strokeStyle = '#223B4E';
+    // Getreidesilos und Lagerhallen
+    ctx.fillStyle = '#223C4F';
+    ctx.fillRect(px + 15 * sc, hY - 75 * sc, 95 * sc, 75 * sc);
+    ctx.fillRect(px + 125 * sc, hY - 55 * sc, 120 * sc, 55 * sc);
+    ctx.fillRect(px + 260 * sc, hY - 65 * sc, 70 * sc, 65 * sc);
+
+    // Containerbrücken in der Ferne
+    ctx.strokeStyle = '#1D3344';
     ctx.lineWidth = 1.6 * sc;
     for (var k = 0; k < 2; k++){
-      var kx = px + 280 * sc + k * 140 * sc;
+      var kx = px + 360 * sc + k * 160 * sc;
       ctx.beginPath();
       ctx.moveTo(kx, hY);
-      ctx.lineTo(kx + 15 * sc, hY - 80 * sc);
-      ctx.lineTo(kx + 75 * sc, hY - 80 * sc);
-      ctx.lineTo(kx + 90 * sc, hY);
+      ctx.lineTo(kx + 16 * sc, hY - 90 * sc);
+      ctx.lineTo(kx + 85 * sc, hY - 90 * sc);
+      ctx.lineTo(kx + 100 * sc, hY);
       ctx.stroke();
-      // Ausleger
       ctx.beginPath();
-      ctx.moveTo(kx - 25 * sc, hY - 72 * sc);
-      ctx.lineTo(kx + 120 * sc, hY - 72 * sc);
+      ctx.moveTo(kx - 30 * sc, hY - 82 * sc);
+      ctx.lineTo(kx + 130 * sc, hY - 82 * sc);
       ctx.stroke();
     }
     ctx.restore();
   }
 
   // 4. Möwen
-  ctx.strokeStyle = 'rgba(255,255,255,.65)';
+  ctx.strokeStyle = 'rgba(255,255,255,.70)';
   ctx.lineWidth = 1.4 * sc;
   for (var m = 0; m < 3; m++){
-    var mx = ((m * 270 + t * 4.5) % (W + 100)) - 50;
-    var my = 48 * sc + m * 24 * sc + Math.sin(t * 0.2 + m) * 6 * sc;
+    var mx = ((m * 270 + t * 4.2) % (W + 100)) - 50;
+    var my = 42 * sc + m * 22 * sc + Math.sin(t * 0.2 + m) * 6 * sc;
     var wing = Math.sin(t * 0.4 + m * 1.5) * 4 * sc;
     ctx.beginPath();
     ctx.moveTo(mx - 8 * sc, my + wing);
@@ -773,88 +755,88 @@ function drawSkyAndHarbor(sc, W, H, t, quayOffset, isSea){
   }
 }
 
-function drawQuay(sc, quayX, waterY, isDeparting, departProg, t){
-  if (quayX < -260 * sc) return;
+/* Kaimauer mit Schienen, Pollern, Fendern & Festmachern */
+function drawQuay(sc, quayOffset, pierY, waterY, isDeparting, departProg, t){
+  var quayX = quayOffset;
+  if (quayX < -320 * sc) return;
   ctx.save();
-  var pierTopY = waterY - 145 * sc;
-  var pierEdgeX = quayX + 185 * sc;
 
-  // 1. Kaimauer-Körper
-  var qg = ctx.createLinearGradient(0, pierTopY, 0, waterY + 90 * sc);
-  qg.addColorStop(0, '#4B5863');
-  qg.addColorStop(0.65, '#2D3841');
-  qg.addColorStop(1, '#182128');
+  var pierEdgeX = quayX + 260 * sc;
+
+  // 1. Massiver Beton-Körper der Kaimauer
+  var qg = ctx.createLinearGradient(0, pierY, 0, waterY + 80 * sc);
+  qg.addColorStop(0, '#47545F');
+  qg.addColorStop(0.65, '#2B353E');
+  qg.addColorStop(1, '#161E24');
   ctx.fillStyle = qg;
-  ctx.fillRect(-50 * sc, pierTopY, pierEdgeX + 50 * sc, waterY + 90 * sc - pierTopY);
+  ctx.fillRect(-60 * sc, pierY, pierEdgeX + 60 * sc, waterY + 80 * sc - pierY);
 
-  // Betonfugen und Textur
+  // Betonfugen
   ctx.strokeStyle = 'rgba(255,255,255,.07)';
   ctx.lineWidth = 1.2 * sc;
-  for (var f = 0; f < pierEdgeX; f += 50 * sc){
-    ctx.beginPath(); ctx.moveTo(f, pierTopY); ctx.lineTo(f, waterY + 40 * sc); ctx.stroke();
+  for (var f = 0; f < pierEdgeX; f += 48 * sc){
+    ctx.beginPath(); ctx.moveTo(f, pierY); ctx.lineTo(f, waterY + 40 * sc); ctx.stroke();
   }
 
-  // 2. Kranschienen auf dem Kai
-  var rail1 = quayX + 35 * sc, rail2 = quayX + 165 * sc;
+  // 2. Kranschienen (fest auf der Kaioberkante eingelassen)
+  var rail1 = quayX + 45 * sc, rail2 = quayX + 175 * sc;
   ctx.fillStyle = '#1D252C';
-  ctx.fillRect(rail1 - 4 * sc, pierTopY - 2 * sc, 8 * sc, 4 * sc);
-  ctx.fillRect(rail2 - 4 * sc, pierTopY - 2 * sc, 8 * sc, 4 * sc);
-  ctx.fillStyle = '#8CA4B8';
-  ctx.fillRect(rail1 - 2 * sc, pierTopY - 4 * sc, 4 * sc, 2 * sc);
-  ctx.fillRect(rail2 - 2 * sc, pierTopY - 4 * sc, 4 * sc, 2 * sc);
+  ctx.fillRect(rail1 - 5 * sc, pierY - 2 * sc, 10 * sc, 4 * sc);
+  ctx.fillRect(rail2 - 5 * sc, pierY - 2 * sc, 10 * sc, 4 * sc);
+  ctx.fillStyle = '#8FA8BE';
+  ctx.fillRect(rail1 - 2.5 * sc, pierY - 4 * sc, 5 * sc, 2 * sc);
+  ctx.fillRect(rail2 - 2.5 * sc, pierY - 4 * sc, 5 * sc, 2 * sc);
 
-  // 3. Kaikante: Gelb-schwarze Warnmarkierung
+  // 3. Gelb-schwarze Warnmarkierung an der Kaikante
   var curbW = 14 * sc;
   ctx.save();
   ctx.beginPath();
-  ctx.rect(pierEdgeX - curbW, pierTopY, curbW, 14 * sc);
+  ctx.rect(pierEdgeX - curbW, pierY, curbW, 14 * sc);
   ctx.clip();
   ctx.fillStyle = '#E5B124';
-  ctx.fillRect(pierEdgeX - curbW, pierTopY, curbW, 14 * sc);
+  ctx.fillRect(pierEdgeX - curbW, pierY, curbW, 14 * sc);
   ctx.strokeStyle = '#1A2127';
   ctx.lineWidth = 4.5 * sc;
   for (var s = -20 * sc; s < 40 * sc; s += 9 * sc){
     ctx.beginPath();
-    ctx.moveTo(pierEdgeX - curbW - 5 * sc, pierTopY + s);
-    ctx.lineTo(pierEdgeX + 5 * sc, pierTopY + s + 16 * sc);
+    ctx.moveTo(pierEdgeX - curbW - 5 * sc, pierY + s);
+    ctx.lineTo(pierEdgeX + 5 * sc, pierY + s + 16 * sc);
     ctx.stroke();
   }
   ctx.restore();
 
-  // 4. Schwerlast-Poller (Bollards)
-  var bollardY1 = pierTopY + 3 * sc;
-  ctx.fillStyle = '#161C22';
-  ctx.fillRect(pierEdgeX - 32 * sc, bollardY1 - 10 * sc, 14 * sc, 10 * sc);
-  ctx.fillRect(pierEdgeX - 37 * sc, bollardY1 - 13 * sc, 24 * sc, 4 * sc);
+  // 4. Poller (Bollards)
+  var bollardY = pierY + 3 * sc;
+  ctx.fillStyle = '#141A20';
+  ctx.fillRect(pierEdgeX - 32 * sc, bollardY - 11 * sc, 14 * sc, 11 * sc);
+  ctx.fillRect(pierEdgeX - 37 * sc, bollardY - 14 * sc, 24 * sc, 4 * sc);
   ctx.fillStyle = '#323D47';
-  ctx.fillRect(pierEdgeX - 31 * sc, bollardY1 - 9 * sc, 4 * sc, 8 * sc);
+  ctx.fillRect(pierEdgeX - 31 * sc, bollardY - 10 * sc, 4 * sc, 9 * sc);
 
-  // 5. Gummifender an der Kaimauer
+  // 5. Gummifender
   var fenderX = pierEdgeX + 4 * sc;
   for (var fn = 0; fn < 2; fn++){
-    var fy = pierTopY + 45 * sc + fn * 65 * sc;
-    // Kette
+    var fy = pierY + 35 * sc + fn * 45 * sc;
     ctx.strokeStyle = '#6A7D8C'; ctx.lineWidth = 1.5 * sc;
-    ctx.beginPath(); ctx.moveTo(pierEdgeX - 2 * sc, fy - 18 * sc); ctx.lineTo(fenderX + 5 * sc, fy); ctx.stroke();
-    // Fender-Zylinder
+    ctx.beginPath(); ctx.moveTo(pierEdgeX - 2 * sc, fy - 14 * sc); ctx.lineTo(fenderX + 4 * sc, fy); ctx.stroke();
     ctx.fillStyle = '#13181D';
-    rr(fenderX, fy - 16 * sc, 16 * sc, 32 * sc, 6 * sc);
+    rr(fenderX, fy - 14 * sc, 15 * sc, 28 * sc, 5 * sc);
     ctx.fill();
     ctx.fillStyle = '#2A343C';
-    ctx.fillRect(fenderX + 2 * sc, fy - 14 * sc, 4 * sc, 28 * sc);
+    ctx.fillRect(fenderX + 2 * sc, fy - 12 * sc, 3 * sc, 24 * sc);
   }
 
-  // 6. Festmacher-Trossen (Mooring lines)
+  // 6. Festmacher-Trossen (beim Ablegen lösen sie sich)
   if (!isDeparting || departProg < 0.35){
     var lineAlpha = isDeparting ? Math.max(0, 1 - (departProg - 0.15) / 0.20) : 1;
-    var slack = isDeparting ? (departProg / 0.35) * 22 * sc : 0;
+    var slack = isDeparting ? (departProg / 0.35) * 20 * sc : 0;
     ctx.save();
     ctx.globalAlpha = lineAlpha;
     ctx.strokeStyle = '#D4C4A3';
     ctx.lineWidth = 2.4 * sc;
     ctx.beginPath();
-    ctx.moveTo(pierEdgeX - 25 * sc, bollardY1 - 8 * sc);
-    ctx.quadraticCurveTo(pierEdgeX + 25 * sc, bollardY1 + 18 * sc + slack, pierEdgeX + 78 * sc, bollardY1 + 8 * sc + slack * 1.3);
+    ctx.moveTo(pierEdgeX - 25 * sc, bollardY - 8 * sc);
+    ctx.quadraticCurveTo(pierEdgeX + 28 * sc, bollardY + 16 * sc + slack, pierEdgeX + 85 * sc, bollardY + 6 * sc + slack * 1.3);
     ctx.stroke();
     ctx.restore();
   }
@@ -862,55 +844,74 @@ function drawQuay(sc, quayX, waterY, isDeparting, departProg, t){
   ctx.restore();
 }
 
-function drawCrane(sc, quayX, curXPixels, isDeparting, departProg, t, cell, hx, hy, ox, oy, deg){
-  if (quayX < -260 * sc) return;
+/* Portalkran: Steht FEST auf den Schienen der Kaimauer (kein Schweben) */
+function drawGroundedCrane(sc, quayOffset, pierY, curXPixels, isDeparting, departProg, t, cell, holdX, hy, shipCx){
+  var craneX = quayOffset;
+  if (craneX < -320 * sc) return;
   ctx.save();
-  var craneX = quayX;
-  var rail1 = craneX + 35 * sc, rail2 = craneX + 165 * sc;
-  var portalDeckY = 165 * sc;
-  var boomY = 34 * sc;
 
-  // 1. Fahrwerke mit Rädern auf den Schienen
-  ctx.fillStyle = '#1B2A36';
-  ctx.fillRect(rail1 - 12 * sc, 230 * sc, 24 * sc, 8 * sc);
-  ctx.fillRect(rail2 - 12 * sc, 230 * sc, 24 * sc, 8 * sc);
-  ctx.fillStyle = '#3E576B';
-  ctx.fillRect(rail1 - 10 * sc, 232 * sc, 7 * sc, 5 * sc);
-  ctx.fillRect(rail1 + 3 * sc, 232 * sc, 7 * sc, 5 * sc);
-  ctx.fillRect(rail2 - 10 * sc, 232 * sc, 7 * sc, 5 * sc);
-  ctx.fillRect(rail2 + 3 * sc, 232 * sc, 7 * sc, 5 * sc);
+  var rail1 = craneX + 45 * sc;
+  var rail2 = craneX + 175 * sc;
+  var portalDeckY = pierY - 145 * sc;
+  var boomY = 38 * sc;
 
-  // 2. Portalbeine (A-Frame Portal mit Durchfahrt)
-  ctx.strokeStyle = '#182C3A';
+  // 1. Fahrwerke & Räder — sitzen EXAKT auf der Kaioberkante (pierY) auf
+  [rail1, rail2].forEach(function(rx){
+    // Radkasten / Bogie
+    ctx.fillStyle = '#17252F';
+    ctx.fillRect(rx - 16 * sc, pierY - 14 * sc, 32 * sc, 10 * sc);
+    // 2 Stahlräder pro Bogie
+    ctx.fillStyle = '#3E576B';
+    ctx.beginPath();
+    ctx.arc(rx - 8 * sc, pierY - 4 * sc, 4.5 * sc, 0, 7);
+    ctx.arc(rx + 8 * sc, pierY - 4 * sc, 4.5 * sc, 0, 7);
+    ctx.fill();
+    ctx.fillStyle = '#141E26';
+    ctx.beginPath();
+    ctx.arc(rx - 8 * sc, pierY - 4 * sc, 2 * sc, 0, 7);
+    ctx.arc(rx + 8 * sc, pierY - 4 * sc, 2 * sc, 0, 7);
+    ctx.fill();
+    // Schienenklemme
+    ctx.fillStyle = '#C74648';
+    ctx.fillRect(rx - 2 * sc, pierY - 8 * sc, 4 * sc, 6 * sc);
+  });
+
+  // 2. Portalbeine (Stahlfachwerk vom Fahrwerk zur Drehkranzbühne)
+  ctx.strokeStyle = '#162836';
   ctx.lineWidth = 7 * sc;
   ctx.beginPath();
-  ctx.moveTo(rail1, 230 * sc); ctx.lineTo(craneX + 75 * sc, portalDeckY);
-  ctx.moveTo(rail2, 230 * sc); ctx.lineTo(craneX + 125 * sc, portalDeckY);
+  ctx.moveTo(rail1, pierY - 14 * sc); ctx.lineTo(craneX + 85 * sc, portalDeckY);
+  ctx.moveTo(rail2, pierY - 14 * sc); ctx.lineTo(craneX + 135 * sc, portalDeckY);
   ctx.stroke();
-  ctx.strokeStyle = '#294357';
+
+  // Fachwerk-Streben
+  ctx.strokeStyle = '#274154';
   ctx.lineWidth = 3.5 * sc;
   ctx.beginPath();
-  ctx.moveTo(rail1 + 10 * sc, 205 * sc); ctx.lineTo(rail2 - 10 * sc, 205 * sc);
-  ctx.moveTo(rail1 + 15 * sc, 205 * sc); ctx.lineTo(craneX + 100 * sc, portalDeckY);
-  ctx.moveTo(rail2 - 15 * sc, 205 * sc); ctx.lineTo(craneX + 100 * sc, portalDeckY);
+  ctx.moveTo(rail1 + 12 * sc, pierY - 55 * sc); ctx.lineTo(rail2 - 12 * sc, pierY - 55 * sc);
+  ctx.moveTo(rail1 + 18 * sc, pierY - 95 * sc); ctx.lineTo(rail2 - 18 * sc, pierY - 95 * sc);
+  ctx.moveTo(rail1 + 15 * sc, pierY - 55 * sc); ctx.lineTo(craneX + 110 * sc, portalDeckY);
+  ctx.moveTo(rail2 - 15 * sc, pierY - 55 * sc); ctx.lineTo(craneX + 110 * sc, portalDeckY);
   ctx.stroke();
 
-  // 3. Drehkranz und Portalbühne
-  ctx.fillStyle = '#1A2F3E';
-  ctx.fillRect(craneX + 55 * sc, portalDeckY, 90 * sc, 12 * sc);
+  // 3. Drehkranzbühne
+  ctx.fillStyle = '#192C3A';
+  ctx.fillRect(craneX + 65 * sc, portalDeckY, 90 * sc, 12 * sc);
   ctx.fillStyle = '#C74648';
-  ctx.fillRect(craneX + 55 * sc, portalDeckY + 10 * sc, 90 * sc, 3 * sc);
+  ctx.fillRect(craneX + 65 * sc, portalDeckY + 10 * sc, 90 * sc, 3 * sc);
 
   // 4. Maschinenhaus / Turm
-  var machX = craneX + 58 * sc, machY = 88 * sc, machW = 82 * sc, machH = 77 * sc;
+  var machX = craneX + 68 * sc, machY = portalDeckY - 78 * sc, machW = 84 * sc, machH = 78 * sc;
   ctx.fillStyle = '#1B2C39';
   ctx.fillRect(machX, machY, machW, machH);
   ctx.fillStyle = '#C74648';
   ctx.fillRect(machX, machY + 28 * sc, machW, 8 * sc);
+  // Ballastkasten achtern
   ctx.fillStyle = '#0F1A22';
-  ctx.fillRect(machX - 18 * sc, machY + 12 * sc, 18 * sc, 50 * sc);
+  ctx.fillRect(machX - 18 * sc, machY + 14 * sc, 18 * sc, 52 * sc);
   ctx.strokeStyle = '#2B4354'; ctx.lineWidth = 1;
-  ctx.strokeRect(machX - 18 * sc, machY + 12 * sc, 18 * sc, 50 * sc);
+  ctx.strokeRect(machX - 18 * sc, machY + 14 * sc, 18 * sc, 52 * sc);
+  // Lüfterlamellen
   ctx.fillStyle = '#0C161D';
   for (var l = 0; l < 4; l++){
     ctx.fillRect(machX + 8 * sc, machY + 45 * sc + l * 6 * sc, 30 * sc, 3 * sc);
@@ -924,18 +925,20 @@ function drawCrane(sc, quayX, curXPixels, isDeparting, departProg, t, cell, hx, 
   ctx.fillRect(cabX + 4 * sc, cabY + 4 * sc, cabW - 6 * sc, cabH * 0.58);
   ctx.strokeStyle = '#0E1A22'; ctx.lineWidth = 1.2 * sc;
   ctx.strokeRect(cabX + 4 * sc, cabY + 4 * sc, cabW - 6 * sc, cabH * 0.58);
+  // Silhouette des Kranführers
   ctx.fillStyle = '#0A1319';
   ctx.beginPath();
   ctx.arc(cabX + 16 * sc, cabY + 14 * sc, 4 * sc, 0, 7);
   ctx.fill();
 
-  // 6. Kranausleger (Fachwerkausleger)
-  var boomStart = craneX + 115 * sc;
-  var boomEnd   = craneX + 780 * sc;
+  // 6. Kranausleger (reicht über die geöffnete Ladeluke #3)
+  var boomStart = craneX + 125 * sc;
+  var boomEnd   = Math.max(craneX + 680 * sc, shipCx + 180 * sc);
   ctx.fillStyle = '#172B38';
   ctx.fillRect(boomStart, boomY - 7 * sc, boomEnd - boomStart, 12 * sc);
   ctx.fillStyle = '#264255';
   ctx.fillRect(boomStart, boomY - 7 * sc, boomEnd - boomStart, 3 * sc);
+  // Gitterfachwerk-Zacken
   ctx.strokeStyle = 'rgba(150,190,215,.4)';
   ctx.lineWidth = 1.2 * sc;
   for (var bt = boomStart; bt < boomEnd - 15 * sc; bt += 24 * sc){
@@ -945,17 +948,18 @@ function drawCrane(sc, quayX, curXPixels, isDeparting, departProg, t, cell, hx, 
     ctx.lineTo(bt + 24 * sc, boomY + 5 * sc);
     ctx.stroke();
   }
+  // Abspannseile zum Kranturm
   ctx.strokeStyle = 'rgba(210,230,245,.65)';
   ctx.lineWidth = 1.6 * sc;
   ctx.beginPath();
-  ctx.moveTo(machX + 20 * sc, machY); ctx.lineTo(boomStart + 180 * sc, boomY - 7 * sc);
-  ctx.moveTo(machX + 20 * sc, machY); ctx.lineTo(boomStart + 360 * sc, boomY - 7 * sc);
+  ctx.moveTo(machX + 25 * sc, machY); ctx.lineTo(boomStart + 160 * sc, boomY - 7 * sc);
+  ctx.moveTo(machX + 25 * sc, machY); ctx.lineTo(boomStart + 320 * sc, boomY - 7 * sc);
   ctx.stroke();
 
   // 7. Laufkatze (Trolley)
   var trolleyX = curXPixels;
   if (isDeparting){
-    var homeX = craneX + 155 * sc;
+    var homeX = craneX + 160 * sc;
     trolleyX = curXPixels + (homeX - curXPixels) * Math.min(1, departProg * 2.2);
   }
   ctx.fillStyle = '#C74648';
@@ -963,27 +967,24 @@ function drawCrane(sc, quayX, curXPixels, isDeparting, departProg, t, cell, hx, 
   ctx.fillStyle = '#1A2935';
   ctx.fillRect(trolleyX - 12 * sc, boomY - 14 * sc, 24 * sc, 3 * sc);
 
-  // 8. Seil und Greifer / Ladung
+  // 8. Seil & Greifer / Fracht am Haken
   if (state === 'play' && cur){
-    var rad = deg * Math.PI / 180;
     var w = cur.s[0].length;
-    var lx = hx + (cur.x + w / 2) * cell;
-    var ly = hy + cur.y * cell;
-    var sx = ox + lx * Math.cos(rad) - ly * Math.sin(rad);
-    var sy = oy + lx * Math.sin(rad) + ly * Math.cos(rad);
+    var sx = holdX + (cur.x + w / 2) * cell;
+    var sy = hy + cur.y * cell;
 
     ctx.strokeStyle = 'rgba(225,240,250,.9)';
     ctx.lineWidth = 1.8 * sc;
     ctx.beginPath();
-    ctx.moveTo(trolleyX - 5 * sc, boomY); ctx.lineTo(sx - 5 * sc, sy - 11 * sc);
-    ctx.moveTo(trolleyX + 5 * sc, boomY); ctx.lineTo(sx + 5 * sc, sy - 11 * sc);
+    ctx.moveTo(trolleyX - 5 * sc, boomY); ctx.lineTo(sx - 5 * sc, sy - 10 * sc);
+    ctx.moveTo(trolleyX + 5 * sc, boomY); ctx.lineTo(sx + 5 * sc, sy - 10 * sc);
     ctx.stroke();
 
     ctx.fillStyle = '#8396A3';
     if (cur.p.k === 'bulk'){
       ctx.beginPath();
-      ctx.moveTo(sx - 14 * sc, sy - 22 * sc); ctx.lineTo(sx + 14 * sc, sy - 22 * sc);
-      ctx.lineTo(sx + 6 * sc, sy - 6 * sc); ctx.lineTo(sx - 6 * sc, sy - 6 * sc);
+      ctx.moveTo(sx - 13 * sc, sy - 20 * sc); ctx.lineTo(sx + 13 * sc, sy - 20 * sc);
+      ctx.lineTo(sx + 5 * sc, sy - 5 * sc); ctx.lineTo(sx - 5 * sc, sy - 5 * sc);
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = cur.p.c;
       for (var i = 0; i < 7; i++){
@@ -993,15 +994,15 @@ function drawCrane(sc, quayX, curXPixels, isDeparting, departProg, t, cell, hx, 
         ctx.fill();
       }
     } else {
-      ctx.fillRect(sx - 14 * sc, sy - 14 * sc, 28 * sc, 7 * sc);
-      ctx.strokeStyle = '#8396A3'; ctx.lineWidth = 2.6 * sc;
+      ctx.fillRect(sx - 14 * sc, sy - 13 * sc, 28 * sc, 6 * sc);
+      ctx.strokeStyle = '#8396A3'; ctx.lineWidth = 2.4 * sc;
       ctx.beginPath();
-      ctx.moveTo(sx - 12 * sc, sy - 8 * sc); ctx.lineTo(sx - 16 * sc, sy - 1 * sc);
-      ctx.moveTo(sx + 12 * sc, sy - 8 * sc); ctx.lineTo(sx + 16 * sc, sy - 1 * sc);
+      ctx.moveTo(sx - 12 * sc, sy - 7 * sc); ctx.lineTo(sx - 16 * sc, sy - 1 * sc);
+      ctx.moveTo(sx + 12 * sc, sy - 7 * sc); ctx.lineTo(sx + 16 * sc, sy - 1 * sc);
       ctx.stroke();
     }
   } else if (isDeparting){
-    var hookY = boomY + 22 * sc + Math.sin(t * 0.1) * 3 * sc;
+    var hookY = boomY + 24 * sc + Math.sin(t * 0.1) * 3 * sc;
     ctx.strokeStyle = 'rgba(225,240,250,.7)';
     ctx.lineWidth = 1.6 * sc;
     ctx.beginPath();
@@ -1019,74 +1020,172 @@ function drawCrane(sc, quayX, curXPixels, isDeparting, departProg, t, cell, hx, 
   ctx.restore();
 }
 
-function drawShip(sc, cx, cy, visualHeel, shipSink, isDeparting, departProg, t, cell, holdW, holdH){
-  var hx = -holdW / 2, hy = -holdH / 2;
-  var beam = holdW + 64 * sc;
-  var deckY = hy - 22 * sc;
-  var botY = hy + holdH + 30 * sc;
+/* Bulk Carrier in vollständiger Seitenansicht mit Glaswand-Cutaway */
+function drawShipProfile(sc, shipCx, cy, shipSink, visualHeel, isDeparting, departProg, t, cell, holdW, holdH){
+  var holdX = shipCx - holdW / 2;
+  var hy = cy - holdH / 2;
+  var deckY = hy - 14 * sc;
+  var keelY = hy + holdH + 20 * sc;
+  var sternX = shipCx - 365 * sc;
+  var bowX   = shipCx + 365 * sc;
+  var wlY    = deckY + (keelY - deckY) * 0.62 + shipSink;
 
   ctx.save();
-  ctx.translate(cx, cy);
+  ctx.translate(shipCx, cy);
   ctx.rotate(visualHeel * Math.PI / 180);
+  ctx.translate(-shipCx, -cy);
 
   // -------------------------------------------------------------
-  // A. HINTERGRUND-AUFBAUTEN (Brücke & Schornstein links/achtern)
+  // 1. RUMPF-AUSSENHAUT (Profile / Seitenansicht)
   // -------------------------------------------------------------
-  var supX = -beam / 2 - 10 * sc;
-  // 1. Weißes Deckshaus (Aufbauten)
-  ctx.fillStyle = '#E8EFF4';
-  ctx.fillRect(supX, deckY - 95 * sc, 75 * sc, 95 * sc);
-  ctx.fillStyle = 'rgba(0,0,0,.08)';
-  ctx.fillRect(supX, deckY - 95 * sc, 6 * sc, 95 * sc);
-  ctx.strokeStyle = '#BDCDD6'; ctx.lineWidth = 1.5 * sc;
+  function traceHullOutline(){
+    ctx.beginPath();
+    // Heck / Poop Deck
+    ctx.moveTo(sternX + 25 * sc, deckY);
+    // Heckspiegel / Transom stern hinab
+    ctx.lineTo(sternX, deckY + 30 * sc);
+    ctx.quadraticCurveTo(sternX - 4 * sc, wlY, sternX + 28 * sc, keelY - 25 * sc);
+    ctx.lineTo(sternX + 42 * sc, keelY);
+    // Kielsohle
+    ctx.lineTo(bowX - 45 * sc, keelY);
+    // Wulstbug (Bulbous bow)
+    ctx.quadraticCurveTo(bowX + 5 * sc, keelY, bowX + 18 * sc, wlY + 22 * sc);
+    ctx.quadraticCurveTo(bowX + 20 * sc, wlY + 4 * sc, bowX - 4 * sc, wlY);
+    // Vorsteven (Raked stem) hinauf zum Backdeck
+    ctx.lineTo(bowX, deckY - 14 * sc);
+    // Backdeck / Schanzkleid hinab zum Hauptdeck
+    ctx.lineTo(shipCx + 220 * sc, deckY);
+    ctx.lineTo(sternX + 25 * sc, deckY);
+    ctx.closePath();
+  }
+
+  // A. Rumpffarben füllen
+  ctx.save();
+  traceHullOutline();
+  ctx.clip();
+
+  // Überwasser-Rumpf (GSL Dunkelblau)
+  var og = ctx.createLinearGradient(0, deckY - 20 * sc, 0, wlY);
+  og.addColorStop(0, '#1E3B50');
+  og.addColorStop(0.5, '#122D3E');
+  og.addColorStop(1, '#091E2C');
+  ctx.fillStyle = og;
+  ctx.fillRect(sternX - 20 * sc, deckY - 30 * sc, (bowX - sternX) + 50 * sc, wlY - deckY + 30 * sc);
+
+  // Horizontale Plattenstöße
+  ctx.strokeStyle = 'rgba(255,255,255,.06)';
+  ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(supX, deckY - 32 * sc); ctx.lineTo(supX + 75 * sc, deckY - 32 * sc);
-  ctx.moveTo(supX, deckY - 64 * sc); ctx.lineTo(supX + 75 * sc, deckY - 64 * sc);
+  ctx.moveTo(sternX, deckY + 25 * sc); ctx.lineTo(bowX, deckY + 25 * sc);
+  ctx.moveTo(sternX, deckY + 52 * sc); ctx.lineTo(bowX, deckY + 52 * sc);
   ctx.stroke();
-  ctx.fillStyle = '#1D3B4E';
+
+  // Wasserlinie (Weißer Bootstop-Streifen)
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(sternX - 20 * sc, wlY - 3 * sc, (bowX - sternX) + 50 * sc, 6 * sc);
+
+  // Unterwasser-Rumpf (Antifouling Rot)
+  var ug = ctx.createLinearGradient(0, wlY, 0, keelY);
+  ug.addColorStop(0, '#983032');
+  ug.addColorStop(0.5, '#7F2426');
+  ug.addColorStop(1, '#5B1719');
+  ctx.fillStyle = ug;
+  ctx.fillRect(sternX - 20 * sc, wlY + 3 * sc, (bowX - sternX) + 50 * sc, keelY - wlY + 30 * sc);
+
+  ctx.restore();
+
+  // Rumpfumriss nachziehen
+  ctx.save();
+  traceHullOutline();
+  ctx.strokeStyle = '#07151F';
+  ctx.lineWidth = 2.6 * sc;
+  ctx.stroke();
+  ctx.restore();
+
+  // -------------------------------------------------------------
+  // 2. HECK-DETAILS: Ruder, Schraube, Heckaufbauten, Brücke, GSL-Kamin
+  // -------------------------------------------------------------
+  // Ruderblatt & Schraubenbrunnen
+  ctx.fillStyle = '#0B1B26';
+  ctx.fillRect(sternX + 18 * sc, keelY - 38 * sc, 16 * sc, 36 * sc);
+  // Schiffsschraube (Messing)
+  ctx.fillStyle = '#C99E32';
+  var propX = sternX + 38 * sc, propY = keelY - 20 * sc;
+  ctx.beginPath();
+  ctx.arc(propX, propY, 5 * sc, 0, 7);
+  ctx.fill();
+  for (var b = 0; b < 4; b++){
+    var ang = (t * 0.1) + b * Math.PI / 2;
+    ctx.beginPath();
+    ctx.ellipse(propX + Math.cos(ang) * 9 * sc, propY + Math.sin(ang) * 9 * sc, 8 * sc, 3.5 * sc, ang, 0, 7);
+    ctx.fill();
+  }
+
+  // Weißes Deckshaus / Aufbauten am Heck
+  var supX = shipCx - 335 * sc, supW = 160 * sc;
+  // 4 Decks Etagenaufbau
+  ctx.fillStyle = '#E8EFF4';
+  ctx.fillRect(supX, deckY - 96 * sc, supW, 96 * sc);
+  ctx.fillStyle = 'rgba(0,0,0,.08)';
+  ctx.fillRect(supX, deckY - 96 * sc, 12 * sc, 96 * sc);
+  // Deckstrennungen
+  ctx.strokeStyle = '#BDCDD6'; ctx.lineWidth = 1.4 * sc;
+  ctx.beginPath();
+  ctx.moveTo(supX, deckY - 28 * sc); ctx.lineTo(supX + supW, deckY - 28 * sc);
+  ctx.moveTo(supX, deckY - 56 * sc); ctx.lineTo(supX + supW, deckY - 56 * sc);
+  ctx.moveTo(supX, deckY - 78 * sc); ctx.lineTo(supX + supW, deckY - 78 * sc);
+  ctx.stroke();
+  // Bullaugen und Kabinenfenster
+  ctx.fillStyle = '#153142';
   for (var row = 0; row < 2; row++){
-    for (var col = 0; col < 3; col++){
+    for (var col = 0; col < 6; col++){
       ctx.beginPath();
-      ctx.arc(supX + 16 * sc + col * 22 * sc, deckY - 18 * sc - row * 32 * sc, 3.2 * sc, 0, 7);
+      ctx.arc(supX + 22 * sc + col * 23 * sc, deckY - 14 * sc - row * 28 * sc, 3 * sc, 0, 7);
       ctx.fill();
     }
   }
-  // Kommandobrücke mit Navigationsfenstern
-  ctx.fillStyle = '#153142';
-  ctx.fillRect(supX + 8 * sc, deckY - 88 * sc, 58 * sc, 14 * sc);
-  ctx.fillStyle = '#E8EFF4';
-  ctx.fillRect(supX - 12 * sc, deckY - 88 * sc, 14 * sc, 5 * sc);
 
-  // 2. GSL-Schornstein
-  var funX = supX + 22 * sc, funY = deckY - 128 * sc, funW = 28 * sc, funH = 36 * sc;
+  // Kommandobrücke mit Navigationsfenstern & Brückennocken
+  ctx.fillStyle = '#0D2738';
+  ctx.fillRect(supX + 16 * sc, deckY - 94 * sc, supW - 20 * sc, 15 * sc);
+  ctx.fillStyle = '#E8EFF4';
+  // Vorkragende Brückennocke
+  ctx.fillRect(supX + supW - 10 * sc, deckY - 94 * sc, 18 * sc, 6 * sc);
+
+  // GSL-Schornstein
+  var funX = supX + 42 * sc, funY = deckY - 132 * sc, funW = 32 * sc, funH = 38 * sc;
   ctx.fillStyle = '#00263D';
   ctx.beginPath();
   ctx.moveTo(funX, funY + funH);
-  ctx.lineTo(funX + 3 * sc, funY);
+  ctx.lineTo(funX + 5 * sc, funY);
   ctx.lineTo(funX + funW, funY);
-  ctx.lineTo(funX + funW - 2 * sc, funY + funH);
+  ctx.lineTo(funX + funW - 3 * sc, funY + funH);
   ctx.closePath();
   ctx.fill();
+  // GSL-Rote Binde
   ctx.fillStyle = '#C74648';
-  ctx.fillRect(funX + 1 * sc, funY + 11 * sc, funW - 1 * sc, 11 * sc);
+  ctx.fillRect(funX + 2 * sc, funY + 11 * sc, funW - 1 * sc, 12 * sc);
   ctx.fillStyle = '#11171C';
-  ctx.fillRect(funX + 2 * sc, funY - 2 * sc, funW - 1 * sc, 4 * sc);
+  ctx.fillRect(funX + 3 * sc, funY - 2 * sc, funW - 1 * sc, 4 * sc);
 
-  // 3. Signalmast mit drehendem Radar
+  // Signalmast & Radar
   ctx.strokeStyle = '#E8EFF4'; ctx.lineWidth = 2 * sc;
-  ctx.beginPath(); ctx.moveTo(supX + 42 * sc, deckY - 95 * sc); ctx.lineTo(supX + 42 * sc, deckY - 135 * sc); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(supX + supW - 35 * sc, deckY - 96 * sc); ctx.lineTo(supX + supW - 35 * sc, deckY - 140 * sc); ctx.stroke();
   var radW = Math.cos(t * 0.12) * 14 * sc;
   ctx.strokeStyle = '#C74648'; ctx.lineWidth = 2.4 * sc;
-  ctx.beginPath(); ctx.moveTo(supX + 42 * sc - radW, deckY - 130 * sc); ctx.lineTo(supX + 42 * sc + radW, deckY - 130 * sc); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(supX + supW - 35 * sc - radW, deckY - 134 * sc);
+  ctx.lineTo(supX + supW - 35 * sc + radW, deckY - 134 * sc);
+  ctx.stroke();
 
-  // 4. Dampfwolke beim Hornstoß (Typhon)
+  // Dampfwolke beim Typhon-Horn
   if (isDeparting && departProg < 0.40){
     var steamAlpha = 0.85 * (1 - departProg / 0.40);
     ctx.save();
     ctx.fillStyle = 'rgba(255, 255, 255, ' + steamAlpha + ')';
     for (var sp = 0; sp < 6; sp++){
-      var stX = supX + 44 * sc + sp * 8 * sc + Math.sin(t * 0.3 + sp) * 4 * sc;
-      var stY = deckY - 136 * sc - sp * 10 * sc;
+      var stX = funX + 16 * sc + sp * 8 * sc + Math.sin(t * 0.3 + sp) * 4 * sc;
+      var stY = funY - 10 * sc - sp * 11 * sc;
       ctx.beginPath();
       ctx.arc(stX, stY, (6 + sp * 3.5) * sc, 0, 7);
       ctx.fill();
@@ -1094,159 +1193,126 @@ function drawShip(sc, cx, cy, visualHeel, shipSink, isDeparting, departProg, t, 
     ctx.restore();
   }
 
-  // 5. Vorschiff / Bugkontur rechts
-  var bowX = beam / 2 + 8 * sc;
-  ctx.fillStyle = '#0D2433';
-  ctx.beginPath();
-  ctx.moveTo(beam / 2 - 20 * sc, deckY);
-  ctx.lineTo(bowX + 25 * sc, deckY - 16 * sc);
-  ctx.lineTo(bowX + 30 * sc, deckY + 40 * sc);
-  ctx.lineTo(beam / 2, deckY + 40 * sc);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#07121A';
-  ctx.beginPath(); ctx.arc(bowX + 10 * sc, deckY + 12 * sc, 5 * sc, 0, 7); ctx.fill();
-  ctx.fillStyle = '#3E505E';
-  ctx.fillRect(bowX + 8 * sc, deckY + 12 * sc, 4 * sc, 12 * sc);
-  ctx.strokeStyle = '#E8EFF4'; ctx.lineWidth = 1.4 * sc;
-  ctx.beginPath(); ctx.moveTo(bowX + 24 * sc, deckY - 16 * sc); ctx.lineTo(bowX + 24 * sc, deckY - 32 * sc); ctx.stroke();
-
-  // -------------------------------------------------------------
-  // B. RUMPF-AUSSENHAUT (Querschnitt & Farbteilung)
-  // -------------------------------------------------------------
-  var wlY = deckY + (botY - deckY) * 0.64;
-
-  function traceHull(){
-    ctx.beginPath();
-    ctx.moveTo(-beam / 2, deckY);
-    ctx.lineTo(beam / 2, deckY);
-    ctx.lineTo(beam / 2, botY - 44 * sc);
-    ctx.quadraticCurveTo(beam / 2, botY, beam / 2 - 48 * sc, botY);
-    ctx.lineTo(-beam / 2 + 48 * sc, botY);
-    ctx.quadraticCurveTo(-beam / 2, botY, -beam / 2, botY - 44 * sc);
-    ctx.closePath();
-  }
-
+  // Freifall-Rettungsboot auf schräger Ablaufbahn
   ctx.save();
-  traceHull();
-  ctx.clip();
-
-  // Überwasser-Rumpf (GSL Dunkelblau)
-  var og = ctx.createLinearGradient(0, deckY, 0, wlY);
-  og.addColorStop(0, '#1E384A');
-  og.addColorStop(0.5, '#122B3B');
-  og.addColorStop(1, '#091D2A');
-  ctx.fillStyle = og;
-  ctx.fillRect(-beam / 2 - 20 * sc, deckY - 10 * sc, beam + 40 * sc, wlY - deckY + 10 * sc);
-
-  // Weiße Wasserlinie (Bootstop)
-  ctx.fillStyle = '#F0F5F8';
-  ctx.fillRect(-beam / 2 - 20 * sc, wlY - 3 * sc, beam + 40 * sc, 6 * sc);
-
-  // Unterwasser-Rumpf (Antifouling Rot)
-  var ug = ctx.createLinearGradient(0, wlY, 0, botY);
-  ug.addColorStop(0, '#983032');
-  ug.addColorStop(0.5, '#7F2426');
-  ug.addColorStop(1, '#5E181A');
-  ctx.fillStyle = ug;
-  ctx.fillRect(-beam / 2 - 20 * sc, wlY + 3 * sc, beam + 40 * sc, botY - wlY + 20 * sc);
-
-  // Vertikale Schweißnähte
-  ctx.strokeStyle = 'rgba(255,255,255,.05)';
-  ctx.lineWidth = 1;
-  for (var sn = -beam / 2 + 40 * sc; sn < beam / 2; sn += 45 * sc){
-    ctx.beginPath(); ctx.moveTo(sn, deckY); ctx.lineTo(sn, botY); ctx.stroke();
-  }
+  ctx.translate(supX - 10 * sc, deckY - 45 * sc);
+  ctx.rotate(-28 * Math.PI / 180);
+  ctx.fillStyle = '#3E576B';
+  ctx.fillRect(0, 0, 36 * sc, 4 * sc);
+  ctx.fillStyle = '#FF6B2B';
+  rr(4 * sc, -9 * sc, 26 * sc, 9 * sc, 3 * sc);
+  ctx.fill();
   ctx.restore();
 
-  traceHull();
-  ctx.strokeStyle = '#07151F';
-  ctx.lineWidth = 2.8 * sc;
+  // -------------------------------------------------------------
+  // 3. VORSCHIFF-DETAILS: Backdeck, Ankerklüse, Anker, Göschstock
+  // -------------------------------------------------------------
+  // Ankerklüse und Anker
+  var anchorX = bowX - 45 * sc, anchorY = deckY + 22 * sc;
+  ctx.fillStyle = '#081219';
+  ctx.beginPath();
+  ctx.ellipse(anchorX, anchorY, 9 * sc, 6 * sc, 25 * Math.PI / 180, 0, 7);
+  ctx.fill();
+  // Hall-Anker
+  ctx.fillStyle = '#2C3A44';
+  ctx.fillRect(anchorX - 3 * sc, anchorY - 6 * sc, 4 * sc, 16 * sc);
+  ctx.beginPath();
+  ctx.arc(anchorX - 1 * sc, anchorY + 8 * sc, 9 * sc, 0.4, 2.7);
+  ctx.lineWidth = 3.5 * sc; ctx.strokeStyle = '#2C3A44'; ctx.stroke();
+
+  // Göschstock (Jackstaff) am Bug mit wehender Reedereiflagge
+  ctx.strokeStyle = '#E8EFF4'; ctx.lineWidth = 1.6 * sc;
+  ctx.beginPath(); ctx.moveTo(bowX - 4 * sc, deckY - 14 * sc); ctx.lineTo(bowX - 4 * sc, deckY - 38 * sc); ctx.stroke();
+  // Flagge
+  ctx.fillStyle = '#C74648';
+  ctx.beginPath();
+  ctx.moveTo(bowX - 4 * sc, deckY - 38 * sc);
+  ctx.lineTo(bowX - 22 * sc + Math.sin(t * 0.2) * 3 * sc, deckY - 33 * sc);
+  ctx.lineTo(bowX - 4 * sc, deckY - 28 * sc);
+  ctx.closePath();
+  ctx.fill();
+
+  // Geschlossene Luken #1/#2 und #4/#5
+  ctx.fillStyle = '#223B4E';
+  // Vor Hold #3 (Ladeluke #4)
+  ctx.fillRect(shipCx + 168 * sc, deckY - 8 * sc, 48 * sc, 8 * sc);
+  ctx.fillStyle = '#314E63';
+  ctx.fillRect(shipCx + 168 * sc, deckY - 11 * sc, 48 * sc, 3 * sc);
+
+  // Hinter Hold #3 (Ladeluke #2)
+  ctx.fillStyle = '#223B4E';
+  ctx.fillRect(shipCx - 168 * sc, deckY - 8 * sc, 30 * sc, 8 * sc);
+  ctx.fillStyle = '#314E63';
+  ctx.fillRect(shipCx - 168 * sc, deckY - 11 * sc, 30 * sc, 3 * sc);
+
+  // Reling auf dem Hauptdeck
+  ctx.strokeStyle = '#BDCDD6'; ctx.lineWidth = 1.2 * sc;
+  for (var r1 = shipCx + 160 * sc; r1 < bowX - 35 * sc; r1 += 18 * sc){
+    ctx.beginPath(); ctx.moveTo(r1, deckY); ctx.lineTo(r1, deckY - 13 * sc); ctx.stroke();
+  }
+  ctx.beginPath();
+  ctx.moveTo(shipCx + 158 * sc, deckY - 12 * sc); ctx.lineTo(bowX - 30 * sc, deckY - 12 * sc);
+  ctx.moveTo(shipCx + 158 * sc, deckY - 6 * sc); ctx.lineTo(bowX - 30 * sc, deckY - 6 * sc);
   ctx.stroke();
 
-  // Tiefgangsskalen (Draft marks)
-  ctx.fillStyle = 'rgba(255,255,255,.85)';
-  ctx.font = '700 ' + Math.round(9 * sc) + 'px Inter, monospace';
-  ctx.textAlign = 'left';
+  // Tiefgangsskalen (Draft marks) am Bug
+  ctx.fillStyle = 'rgba(255,255,255,.9)';
+  ctx.font = '700 ' + Math.round(8.5 * sc) + 'px Inter, monospace';
+  ctx.textAlign = 'right';
   for (var dm = 0; dm < 4; dm++){
-    var dY = wlY - 24 * sc + dm * 16 * sc;
+    var dY = wlY - 20 * sc + dm * 16 * sc;
     var dVal = (10 - dm * 2) + 'm';
-    ctx.fillRect(beam / 2 - 16 * sc, dY, 6 * sc, 1.2 * sc);
-    ctx.fillText(dVal, beam / 2 - 38 * sc, dY + 3 * sc);
+    ctx.fillRect(bowX - 18 * sc, dY, 5 * sc, 1.2 * sc);
+    ctx.fillText(dVal, bowX - 22 * sc, dY + 3 * sc);
   }
 
   // -------------------------------------------------------------
-  // C. DECK, LUKENSÜLL & FALT-LUKENDECKEL
+  // 4. DER GLASWAND-CUTAWAY LADERAUM (Hold #3)
   // -------------------------------------------------------------
-  ctx.fillStyle = '#2B3D4A';
-  ctx.fillRect(-beam / 2, deckY, beam, 6 * sc);
-
-  // Reling
-  ctx.strokeStyle = '#E0EBF2'; ctx.lineWidth = 1.2 * sc;
-  for (var r1 = -beam / 2 + 4 * sc; r1 < hx - 14 * sc; r1 += 16 * sc){
-    ctx.beginPath(); ctx.moveTo(r1, deckY); ctx.lineTo(r1, deckY - 15 * sc); ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.moveTo(-beam / 2 + 2 * sc, deckY - 7 * sc); ctx.lineTo(hx - 12 * sc, deckY - 7 * sc);
-  ctx.moveTo(-beam / 2 + 2 * sc, deckY - 14 * sc); ctx.lineTo(hx - 12 * sc, deckY - 14 * sc);
-  ctx.stroke();
-  for (var r2 = hx + holdW + 20 * sc; r2 < beam / 2 - 4 * sc; r2 += 16 * sc){
-    ctx.beginPath(); ctx.moveTo(r2, deckY); ctx.lineTo(r2, deckY - 15 * sc); ctx.stroke();
-  }
-  ctx.beginPath();
-  ctx.moveTo(hx + holdW + 18 * sc, deckY - 7 * sc); ctx.lineTo(beam / 2 - 2 * sc, deckY - 7 * sc);
-  ctx.moveTo(hx + holdW + 18 * sc, deckY - 14 * sc); ctx.lineTo(beam / 2 - 2 * sc, deckY - 14 * sc);
-  ctx.stroke();
-
-  // Lukensüll
-  var coamH = 18 * sc;
+  // Lukensüll & Faltlukendeckel auf dem Deck
+  var coamH = 16 * sc;
   ctx.fillStyle = '#1D3444';
-  ctx.fillRect(hx - 10 * sc, deckY - coamH, 10 * sc, coamH + 6 * sc);
-  ctx.fillRect(hx + holdW, deckY - coamH, 10 * sc, coamH + 6 * sc);
+  ctx.fillRect(holdX - 8 * sc, deckY - coamH, 8 * sc, coamH + 6 * sc);
+  ctx.fillRect(holdX + holdW, deckY - coamH, 8 * sc, coamH + 6 * sc);
   ctx.fillStyle = '#39576D';
-  ctx.fillRect(hx - 12 * sc, deckY - coamH, 14 * sc, 3 * sc);
-  ctx.fillRect(hx + holdW - 2 * sc, deckY - coamH, 14 * sc, 3 * sc);
+  ctx.fillRect(holdX - 10 * sc, deckY - coamH, 12 * sc, 3 * sc);
+  ctx.fillRect(holdX + holdW - 2 * sc, deckY - coamH, 12 * sc, 3 * sc);
 
-  // Faltlukendeckel
+  // Zurückgeklappte Lukendeckel-Pakete
   for (var side = 0; side < 2; side++){
-    var fx = (side === 0) ? hx - 22 * sc : hx + holdW + 4 * sc;
+    var fx = (side === 0) ? holdX - 20 * sc : holdX + holdW + 4 * sc;
     ctx.fillStyle = '#2A4456';
-    ctx.fillRect(fx, deckY - coamH - 24 * sc, 8 * sc, 26 * sc);
-    ctx.fillRect(fx + 9 * sc, deckY - coamH - 22 * sc, 8 * sc, 24 * sc);
+    ctx.fillRect(fx, deckY - coamH - 22 * sc, 7 * sc, 24 * sc);
+    ctx.fillRect(fx + 8 * sc, deckY - coamH - 20 * sc, 7 * sc, 22 * sc);
     ctx.fillStyle = '#1B2E3B';
-    ctx.strokeRect(fx, deckY - coamH - 24 * sc, 8 * sc, 26 * sc);
-    ctx.strokeRect(fx + 9 * sc, deckY - coamH - 22 * sc, 8 * sc, 24 * sc);
-    ctx.strokeStyle = '#7E96A6'; ctx.lineWidth = 1.8 * sc;
-    ctx.beginPath();
-    ctx.moveTo(fx + 4 * sc, deckY - 4 * sc);
-    ctx.lineTo(fx + 12 * sc, deckY - coamH - 12 * sc);
-    ctx.stroke();
+    ctx.strokeRect(fx, deckY - coamH - 22 * sc, 7 * sc, 24 * sc);
+    ctx.strokeRect(fx + 8 * sc, deckY - coamH - 20 * sc, 7 * sc, 22 * sc);
   }
 
-  // -------------------------------------------------------------
-  // D. SCHNITT IN DEN LADERAUM (Hold #3 Cutaway)
-  // -------------------------------------------------------------
-  ctx.fillStyle = '#081722';
-  ctx.fillRect(hx, hy, holdW, holdH);
-  ctx.fillStyle = '#102636';
+  // A. Laderaum-Innenraum (Dunkle Industrie-Struktur mit Schotten)
+  ctx.fillStyle = '#091621';
+  ctx.fillRect(holdX, hy, holdW, holdH);
+
+  // Vertikale Spanten / Sicken in der Schottwand
+  ctx.fillStyle = '#0F2332';
   for (var cor = 0; cor < COLS; cor++){
     if (cor % 2 === 1){
-      ctx.fillRect(hx + cor * cell, hy, cell, holdH);
+      ctx.fillRect(holdX + cor * cell, hy, cell, holdH);
     }
   }
-  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.fillStyle = 'rgba(0,0,0,.30)';
   for (var cor2 = 0; cor2 < COLS; cor2++){
-    ctx.fillRect(hx + cor2 * cell, hy, 4 * sc, holdH);
+    ctx.fillRect(holdX + cor2 * cell, hy, 3 * sc, holdH);
   }
 
-  // Topside- und Hopper-Tanks
+  // Schotttaschen (Topside & Hopper Tanks)
   for (var y = 0; y < ROWS; y++){
     for (var x = 0; x < COLS; x++){
       if (!isStruct(y, x)) continue;
-      var px = hx + x * cell, py = hy + y * cell;
-      ctx.fillStyle = '#224357';
+      var px = holdX + x * cell, py = hy + y * cell;
+      ctx.fillStyle = '#1C3E52';
       ctx.fillRect(px, py, cell, cell);
-      ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 1;
       for (var d = -cell; d < cell * 2; d += 9 * sc){
         ctx.beginPath(); ctx.moveTo(px + d, py); ctx.lineTo(px + d + cell, py + cell); ctx.stroke();
       }
@@ -1256,7 +1322,7 @@ function drawShip(sc, cx, cy, visualHeel, shipSink, isDeparting, departProg, t, 
   for (var y2 = 0; y2 < ROWS; y2++){
     for (var x2 = 0; x2 < COLS; x2++){
       if (!isStruct(y2, x2)) continue;
-      var qx = hx + x2 * cell, qy = hy + y2 * cell;
+      var qx = holdX + x2 * cell, qy = hy + y2 * cell;
       if (!isStruct(y2 + 1, x2) && y2 + 1 < ROWS){ line(qx, qy + cell, qx + cell, qy + cell); }
       if (!isStruct(y2 - 1, x2) && y2 - 1 >= 0){ line(qx, qy, qx + cell, qy); }
       if (x2 + 1 < COLS && !isStruct(y2, x2 + 1)){ line(qx + cell, qy, qx + cell, qy + cell); }
@@ -1264,91 +1330,117 @@ function drawShip(sc, cx, cy, visualHeel, shipSink, isDeparting, departProg, t, 
     }
   }
 
-  // Tankdecke
-  ctx.strokeStyle = 'rgba(170,205,230,.5)'; ctx.lineWidth = 2.4 * sc;
-  line(hx + 2 * cell, hy + holdH, hx + holdW - 2 * cell, hy + holdH);
+  // Tankdecke / Doppelboden-Trägerlinie
+  ctx.strokeStyle = 'rgba(170,205,230,.55)'; ctx.lineWidth = 2.4 * sc;
+  line(holdX + 2 * cell, hy + holdH, holdX + holdW - 2 * cell, hy + holdH);
 
   // Mittschiffslinie
   ctx.strokeStyle = 'rgba(199,70,72,.45)'; ctx.setLineDash([5, 6]); ctx.lineWidth = 1.4;
-  line(hx + holdW / 2, hy + cell, hx + holdW / 2, hy + holdH);
+  line(holdX + holdW / 2, hy + cell, holdX + holdW / 2, hy + holdH);
   ctx.setLineDash([]);
 
-  // Ladung
+  // Gestautes Ladegut
   for (var yy = 0; yy < ROWS; yy++){
     for (var xx = 0; xx < COLS; xx++){
       var c = grid[yy][xx];
       if (!c || c.struct) continue;
-      cargo(hx + xx * cell, hy + yy * cell, cell, c.c, c.k, c.part, 1);
+      cargo(holdX + xx * cell, hy + yy * cell, cell, c.c, c.k, c.part, 1);
     }
   }
 
-  // Verrutschte Ladung
+  // Verrutschte Ladung markieren
   if (shiftFlash > 0 && shifted.length){
     ctx.save();
     ctx.strokeStyle = 'rgba(199,70,72,' + Math.min(1, shiftFlash / 55) + ')';
     ctx.lineWidth = 3 * sc;
     for (var si = 0; si < shifted.length; si++){
-      ctx.strokeRect(hx + shifted[si][0] * cell + 1, hy + shifted[si][1] * cell + 1, cell - 2, cell - 2);
+      ctx.strokeRect(holdX + shifted[si][0] * cell + 1, hy + shifted[si][1] * cell + 1, cell - 2, cell - 2);
     }
     ctx.restore();
   }
 
-  // Fallendes Kolli + Schattenriss
+  // Fallendes Frachtstück + Geisterschatten
   if (state === 'play' && cur){
     var gv = ghostY();
     for (var py2 = 0; py2 < cur.s.length; py2++){
       for (var px2 = 0; px2 < cur.s[py2].length; px2++){
         if (!cur.s[py2][px2]) continue;
         var part = [px2, py2, cur.s[0].length, cur.s.length];
-        cargo(hx + (cur.x + px2) * cell, hy + (gv + py2) * cell, cell, cur.p.c, cur.p.k, part, 0.18);
-        cargo(hx + (cur.x + px2) * cell, hy + (cur.y + py2) * cell, cell, cur.p.c, cur.p.k, part, 1);
+        cargo(holdX + (cur.x + px2) * cell, hy + (gv + py2) * cell, cell, cur.p.c, cur.p.k, part, 0.18);
+        cargo(holdX + (cur.x + px2) * cell, hy + (cur.y + py2) * cell, cell, cur.p.c, cur.p.k, part, 1);
       }
     }
   }
 
+  // B. GLASWAND-EFFEKT & SCHNITTKANTE
+  // 1. Dicker bemaßter Schnittrand der Stahl-Bordwand (Schnittmodell-Optik)
+  ctx.save();
+  ctx.strokeStyle = '#153347';
+  ctx.lineWidth = 6 * sc;
+  ctx.strokeRect(holdX - 3 * sc, hy - 3 * sc, holdW + 6 * sc, holdH + 6 * sc);
+  ctx.strokeStyle = '#4F82A4';
+  ctx.lineWidth = 2 * sc;
+  ctx.strokeRect(holdX - 1 * sc, hy - 1 * sc, holdW + 2 * sc, holdH + 2 * sc);
+  ctx.strokeStyle = 'rgba(255,255,255,.55)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(holdX, hy, holdW, holdH);
+
+  // 2. Gläserne Lichtreflexion quer über den aufgeschnittenen Laderaum
+  var glassGrad = ctx.createLinearGradient(holdX - 20 * sc, hy - 20 * sc, holdX + holdW + 20 * sc, hy + holdH + 20 * sc);
+  glassGrad.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
+  glassGrad.addColorStop(0.32, 'rgba(255, 255, 255, 0.02)');
+  glassGrad.addColorStop(0.48, 'rgba(255, 255, 255, 0.15)');
+  glassGrad.addColorStop(0.54, 'rgba(255, 255, 255, 0.02)');
+  glassGrad.addColorStop(1, 'rgba(255, 255, 255, 0.06)');
+  ctx.fillStyle = glassGrad;
+  ctx.fillRect(holdX, hy, holdW, holdH);
+  ctx.restore();
+
   ctx.restore();
 }
 
-function drawWater(sc, W, H, waterY, t, isDeparting, departProg, cx, cy, beam, shipSink){
+/* Vordergrundwasser mit Schraubenwasser beim Ablegen & Seegang */
+function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shipSink, visualHeel){
   ctx.save();
+  var sternX = shipCx - 365 * sc;
 
-  // 1. Schraubenwasser am Heck beim Ablegen
+  // 1. Schäumendes Schraubenwasser am Heck beim Ablegen
   if (isDeparting && departProg > 0.15){
     var washIntensity = Math.min(1, (departProg - 0.15) / 0.35);
-    var washX = cx - beam / 2 + 10 * sc;
-    var washY = waterY + 12 * sc;
+    var washX = sternX + 25 * sc;
+    var washY = waterY + 14 * sc;
 
     ctx.save();
-    for (var b = 0; b < 18; b++){
-      var bRadius = (8 + b * 2.5) * sc * washIntensity;
-      var bx = washX - b * 11 * sc * washIntensity + Math.sin(t * 0.4 + b) * 12 * sc;
-      var by = washY + Math.cos(t * 0.5 + b * 2) * 9 * sc;
+    for (var b = 0; b < 20; b++){
+      var bRadius = (8 + b * 2.8) * sc * washIntensity;
+      var bx = washX - b * 12 * sc * washIntensity + Math.sin(t * 0.4 + b) * 12 * sc;
+      var by = washY + Math.cos(t * 0.5 + b * 2) * 8 * sc;
       ctx.fillStyle = (b % 2 === 0) ? 'rgba(255,255,255,.75)' : 'rgba(175,225,245,.65)';
       ctx.beginPath();
       ctx.arc(bx, by, bRadius, 0, 7);
       ctx.fill();
     }
-    ctx.strokeStyle = 'rgba(255,255,255,.8)';
-    ctx.lineWidth = 2.5 * sc;
+    ctx.strokeStyle = 'rgba(255,255,255,.85)';
+    ctx.lineWidth = 2.4 * sc;
     for (var w = 0; w < 3; w++){
       ctx.beginPath();
-      ctx.arc(washX - w * 18 * sc, washY, (14 + w * 12) * sc, 0.6, 2.8);
+      ctx.arc(washX - w * 20 * sc, washY, (15 + w * 14) * sc, 0.6, 2.8);
       ctx.stroke();
     }
     ctx.restore();
   }
 
-  // 2. Wasserfläche vorn
-  var seaWaveAmp = (state === 'sea') ? 7 * wx.f : 3.5;
+  // 2. Vordergrund-Wasserfläche
+  var seaWaveAmp = (state === 'sea') ? 7.5 * wx.f : 3.0;
   var wg = ctx.createLinearGradient(0, waterY, 0, H);
-  wg.addColorStop(0, 'rgba(14, 58, 86, 0.94)');
-  wg.addColorStop(0.4, 'rgba(8, 38, 59, 0.97)');
-  wg.addColorStop(1, '#03141F');
+  wg.addColorStop(0, 'rgba(12, 54, 80, 0.93)');
+  wg.addColorStop(0.4, 'rgba(7, 34, 54, 0.97)');
+  wg.addColorStop(1, '#02121C');
 
   ctx.beginPath();
   ctx.moveTo(0, waterY);
   for (var wx = 0; wx <= W; wx += 8){
-    var wy = waterY + Math.sin(wx / 68 + t / 18) * seaWaveAmp + Math.sin(wx / 28 - t / 14) * (seaWaveAmp * 0.4);
+    var wy = waterY + Math.sin(wx / 68 + t / 18) * seaWaveAmp + Math.sin(wx / 28 - t / 14) * (seaWaveAmp * 0.35);
     ctx.lineTo(wx, wy);
   }
   ctx.lineTo(W, H);
@@ -1357,18 +1449,18 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, cx, cy, beam, s
   ctx.fillStyle = wg;
   ctx.fill();
 
-  // Gischt- & Schaumkante
+  // Schaumkante an der Wasseroberfläche
   ctx.strokeStyle = 'rgba(180, 225, 245, 0.45)';
   ctx.lineWidth = 1.8 * sc;
   ctx.beginPath();
   ctx.moveTo(0, waterY);
   for (var wx2 = 0; wx2 <= W; wx2 += 8){
-    var wy2 = waterY + Math.sin(wx2 / 68 + t / 18) * seaWaveAmp + Math.sin(wx2 / 28 - t / 14) * (seaWaveAmp * 0.4);
+    var wy2 = waterY + Math.sin(wx2 / 68 + t / 18) * seaWaveAmp + Math.sin(wx2 / 28 - t / 14) * (seaWaveAmp * 0.35);
     ctx.lineTo(wx2, wy2);
   }
   ctx.stroke();
 
-  // Wellenkronen auf See
+  // Gischtkronen auf See
   if (state === 'sea' && wx.f > 0.9){
     ctx.strokeStyle = 'rgba(255,255,255,.65)';
     ctx.lineWidth = 2 * sc;
@@ -1385,58 +1477,65 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, cx, cy, beam, s
   ctx.restore();
 }
 
+/* Haupt-Rendering */
 function render(){
   if (!ctx) return;
   var sc = parseFloat(cv.dataset.scale) || 1;
   var cell = CELL * sc;
   var holdW = COLS * cell, holdH = ROWS * cell;
-  var beam = holdW + 64 * sc;
 
-  var baseCx = W * 0.58;
-  var centerCx = W * 0.50;
-  var cx = baseCx;
+  var baseShipCx = W * 0.52;
+  var centerShipCx = W * 0.50;
+  var shipCx = baseShipCx;
   var quayOffset = 0;
   var departProg = 0;
 
   if (state === 'play'){
-    cx = baseCx;
+    shipCx = baseShipCx;
     quayOffset = 0;
     departProg = 0;
   } else if (state === 'depart'){
     var p = Math.min(1, departT / DEPART_DUR);
     departProg = p;
     var easeP = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
-    quayOffset = -easeP * 360 * sc;
-    cx = baseCx + (centerCx - baseCx) * easeP;
+    quayOffset = -easeP * 420 * sc;
+    shipCx = baseShipCx + (centerShipCx - baseShipCx) * easeP;
     if (p > 0.15 && p < 0.65){
-      var push = Math.sin((p - 0.15) / 0.50 * Math.PI) * 16 * sc;
-      cx += push;
+      var push = Math.sin((p - 0.15) / 0.50 * Math.PI) * 14 * sc;
+      shipCx += push;
     }
   } else if (state === 'sea'){
-    cx = centerCx;
-    quayOffset = -420 * sc;
+    shipCx = centerShipCx;
+    quayOffset = -500 * sc;
     departProg = 1;
   } else if (state === 'over'){
     if (msg && (msg[2] === 'sea' || msg[2] === 'safe')){
-      cx = centerCx;
-      quayOffset = -420 * sc;
+      shipCx = centerShipCx;
+      quayOffset = -500 * sc;
       departProg = 1;
     } else {
-      cx = baseCx;
+      shipCx = baseShipCx;
       quayOffset = 0;
       departProg = 0;
     }
   }
 
-  var shipSink = Math.min(20 * sc, (stats.weight / DWT_MAX) * 20 * sc);
-  var cy = H * 0.535;
-  var waterY = cy + holdH / 2 - 8 * sc;
+  var shipSink = Math.min(22 * sc, (stats.weight / DWT_MAX) * 22 * sc);
+  var cy = H * 0.57;
+  var hy = cy - holdH / 2;
+  var holdX = shipCx - holdW / 2;
+  var waterY = cy + holdH / 2 - 18 * sc;
+  var pierY  = waterY - 55 * sc;
 
   ctx.clearRect(0, 0, W, H);
 
+  // 1. Himmel & Hafen-Kulisse
   drawSkyAndHarbor(sc, W, H, waveT, quayOffset, state === 'sea');
-  drawQuay(sc, quayOffset, waterY, state === 'depart', departProg, waveT);
 
+  // 2. Kaimauer
+  drawQuay(sc, quayOffset, pierY, waterY, state === 'depart', departProg, waveT);
+
+  // 3. Krängung & Stampfen
   var visualHeel = heel;
   if (state === 'sea'){
     var amp = rollAmplitude();
@@ -1444,21 +1543,22 @@ function render(){
     visualHeel = stats.heel + Math.sin(rollT / (period * 9)) * amp;
   }
   var bob = (state === 'sea' ? Math.sin(waveT / 24) * 6 : Math.sin(waveT / 35) * 1.5);
-  drawShip(sc, cx, cy + shipSink + bob, visualHeel, shipSink, state === 'depart', departProg, waveT, cell, holdW, holdH);
 
-  drawWater(sc, W, H, waterY, waveT, state === 'depart', departProg, cx, cy + shipSink + bob, beam, shipSink);
-
-  var hx = -holdW / 2, hy = -holdH / 2;
-  var rad = visualHeel * Math.PI / 180;
-  var curXPixels = cx;
+  // 4. Portalkran (steht fest auf den Schienen der Kaimauer)
+  var curXPixels = holdX + holdW / 2;
   if (cur){
     var wCur = cur.s[0].length;
-    var lx = hx + (cur.x + wCur / 2) * cell;
-    var ly = hy + cur.y * cell;
-    curXPixels = cx + lx * Math.cos(rad) - ly * Math.sin(rad);
+    curXPixels = holdX + (cur.x + wCur / 2) * cell;
   }
-  drawCrane(sc, quayOffset, curXPixels, state === 'depart', departProg, waveT, cell, hx, hy, cx, cy + shipSink + bob, visualHeel);
+  drawGroundedCrane(sc, quayOffset, pierY, curXPixels, state === 'depart', departProg, waveT, cell, holdX, hy + shipSink + bob, shipCx);
 
+  // 5. Bulk Carrier in Seitenansicht mit Glaswand-Cutaway
+  drawShipProfile(sc, shipCx, cy + shipSink + bob, shipSink, visualHeel, state === 'depart', departProg, waveT, cell, holdW, holdH);
+
+  // 6. Vordergrund-Wasser
+  drawWater(sc, W, H, waterY, waveT, state === 'depart', departProg, shipCx, cy + shipSink + bob, shipSink, visualHeel);
+
+  // Warnung bei verrutschter Ladung
   if (shiftFlash > 0){
     var a = Math.min(1, shiftFlash / 55);
     ctx.save();
