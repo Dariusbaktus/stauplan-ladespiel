@@ -14,13 +14,14 @@ Raum voll, entscheidet eine Seereise mit zufälligem Wetter, ob die Stauung häl
 kein Server, keine Fremdbibliothek, keine Cookies.
 
 Steuerung: ◀ ▶ bewegen · ▲ drehen · ▼ senken · Leertaste fallen lassen.
-Am Handy über die Knöpfe unter der Anzeige.
+Am Handy wahlweise über Gesten direkt auf dem Spielfeld (Wischen nach links/rechts/unten, Tippen zum Drehen) oder über die Daumen-Steuerung unter der Anzeige (inkl. Dauerbewegung bei Gedrückthalten).
 
 ## Dateien
 
 | Datei | Zweck |
 |---|---|
-| `index.html` | das Spiel, eigenständige Seite |
+| `index.html` | das Spiel, eigenständige Seite (automatisch responsiv auf Mobilgeräten) |
+| `mobile.html` | dedizierte Handy-Fassung als Web-App (Zero-Scroll-Layout, Daumenleiste, Vollbild-optimiert) |
 | `wordpress-block.html` | dasselbe Spiel als `<div>` für den WordPress-Block „Individuelles HTML" |
 | `archiv/stauplan_v1.html`, `_v2.html` | frühere Stände; v2 war zu leicht, praktisch jeder Lauf ging gut aus |
 
