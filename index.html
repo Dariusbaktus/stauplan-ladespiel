@@ -564,9 +564,17 @@ function initCanvas(){
 
 function fit(){
   var box = cv.parentNode.getBoundingClientRect();
-  var w = Math.max(320, Math.min(820, box.width));
-  var scale = Math.min(1, w / 820);
-  W = w; H = Math.round(580 * scale);
+  var w = Math.max(320, Math.min(820, box.width || window.innerWidth));
+  var isMobile = w <= 640;
+  var scale, h;
+  if (isMobile){
+    scale = Math.max(0.65, Math.min(0.77, w / 510));
+    h = Math.round(Math.min(430, Math.max(350, w * 0.96)));
+  } else {
+    scale = Math.min(1, w / 820);
+    h = Math.round(580 * scale);
+  }
+  W = w; H = h;
   var dpr = window.devicePixelRatio || 1;
   cv.width = W * dpr; cv.height = H * dpr;
   cv.style.width = W + 'px'; cv.style.height = H + 'px';
@@ -1525,11 +1533,11 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shi
     ctx.restore();
   }
 
-  // 2. Vordergrund-Wasserfläche
-  var seaWaveAmp = (state === 'sea') ? 7.5 * wx.f : 3.0;
+  // 2. Vordergrund-Wasserfläche mit gedämpfter, realistischer Wellenhöhe
+  var seaWaveAmp = (state === 'sea') ? Math.min(3.2 * sc, 2.0 * wx.f * sc) : 1.4 * sc;
   var wg = ctx.createLinearGradient(0, waterY, 0, H);
-  wg.addColorStop(0, 'rgba(12, 54, 80, 0.93)');
-  wg.addColorStop(0.4, 'rgba(7, 34, 54, 0.97)');
+  wg.addColorStop(0, 'rgba(12, 54, 80, 0.90)');
+  wg.addColorStop(0.4, 'rgba(7, 34, 54, 0.96)');
   wg.addColorStop(1, '#02121C');
 
   ctx.beginPath();
@@ -1546,7 +1554,7 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shi
 
   // Schaumkante an der Wasseroberfläche
   ctx.strokeStyle = 'rgba(180, 225, 245, 0.45)';
-  ctx.lineWidth = 1.8 * sc;
+  ctx.lineWidth = 1.5 * sc;
   ctx.beginPath();
   ctx.moveTo(0, waterY);
   for (var wx2 = 0; wx2 <= W; wx2 += 8){
@@ -1557,14 +1565,14 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shi
 
   // Gischtkronen auf See
   if (state === 'sea' && wx.f > 0.9){
-    ctx.strokeStyle = 'rgba(255,255,255,.65)';
-    ctx.lineWidth = 2 * sc;
-    for (var c = 0; c < 5; c++){
+    ctx.strokeStyle = 'rgba(255,255,255,.60)';
+    ctx.lineWidth = 1.5 * sc;
+    for (var c = 0; c < 4; c++){
       var cxPos = ((c * 170 + t * 25) % (W + 80)) - 40;
-      var cyPos = waterY + 12 * sc + c * 18 * sc;
+      var cyPos = waterY + 9 * sc + c * 14 * sc;
       ctx.beginPath();
-      ctx.moveTo(cxPos - 12 * sc, cyPos);
-      ctx.quadraticCurveTo(cxPos, cyPos - 4 * sc, cxPos + 12 * sc, cyPos);
+      ctx.moveTo(cxPos - 10 * sc, cyPos);
+      ctx.quadraticCurveTo(cxPos, cyPos - 3 * sc, cxPos + 10 * sc, cyPos);
       ctx.stroke();
     }
   }
@@ -1615,12 +1623,14 @@ function render(){
     }
   }
 
-  var shipSink = Math.min(22 * sc, (stats.weight / DWT_MAX) * 22 * sc);
-  var cy = H * 0.57;
+  var shipSink = Math.min(18 * sc, (stats.weight / DWT_MAX) * 18 * sc);
+  var isMobile = W <= 640;
+  var cy = isMobile ? H * 0.51 : H * 0.57;
   var hy = cy - holdH / 2;
   var holdX = shipCx - holdW / 2;
-  var waterY = cy + holdH / 2 - 18 * sc;
-  var pierY  = waterY - 55 * sc;
+  var holdBottom = hy + holdH;
+  var pierY = isMobile ? (cy + holdH / 2 - 38 * sc) : (cy + holdH / 2 - 70 * sc);
+  var waterY = holdBottom + 6 * sc + shipSink * 0.5 + (state === 'sea' ? Math.sin(waveT / 24) * 2 : 0);
 
   ctx.clearRect(0, 0, W, H);
 
