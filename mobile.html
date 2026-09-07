@@ -524,13 +524,13 @@ canvas {
     </div>
   </header>
 
-  <!-- Live-Telemetrie (Mobile HUD) -->
+  <!-- Live-Telemetrie (Mobile HUD: 4-Karten-Raster, Stabilitäts-Alert, Lade-Tipp & Queue) -->
   <section class="hud">
     <div class="hud-grid">
       <div class="hud-card">
         <span class="hud-lbl">Geladen</span>
         <span class="hud-val" id="mWeight">0 t</span>
-        <span class="hud-sub" id="mDwt">0 % Tragf.</span>
+        <span class="hud-sub" id="mDwt">0 % DWT</span>
         <div class="mini-track"><div class="mini-fill" id="bDwt"></div></div>
       </div>
       <div class="hud-card">
@@ -545,15 +545,40 @@ canvas {
         <span class="hud-sub ok" id="mGmTxt">gut</span>
         <div class="mini-track"><div class="mini-fill" id="bGm"></div></div>
       </div>
+      <div class="hud-card">
+        <span class="hud-lbl">Broken St.</span>
+        <span class="hud-val" id="mBroken">0 %</span>
+        <span class="hud-sub" id="mBrokenSub">Laderaum</span>
+        <div class="mini-track"><div class="mini-fill" id="bBroken" style="background:#6A808E;width:0%"></div></div>
+      </div>
     </div>
 
-    <div class="cargo-strip">
-      <div class="cargo-cur">
-        <span class="cargo-swatch" id="curSwatch" style="background:#8894A0"></span>
-        <span>Haken: <b id="mCur">—</b></span>
-      </div>
-      <div class="cargo-next" id="mNextPreview">Nächstes: —</div>
+    <!-- Aktive Warn- und Trimm-Statuspille -->
+    <div class="m-status-pill ok" id="mAlertMob">
+      ⚓ Bereit zum Laden · Trimm stabil
     </div>
+
+    <!-- Am Kranhaken Card mit echtem seemännischem Stau-Tipp -->
+    <div class="m-cargo-card">
+      <div class="m-cargo-row">
+        <span class="m-cargo-tag">Haken:</span>
+        <span class="m-swatch" id="mCurSwatchMob" style="background:#8894A0"></span>
+        <b class="m-cargo-name" id="mCurMob">—</b>
+        <span class="m-cargo-weight" id="mCurWeightMob"></span>
+      </div>
+      <div class="m-cargo-tip" id="mCurTipMob">
+        💡 Schwergut auf den Laderaumboden stauen (Schwerpunkt senken).
+      </div>
+    </div>
+
+    <!-- Als Nächstes Queue Chips -->
+    <div class="m-next-row">
+      <span class="m-next-lbl">Nächstes:</span>
+      <div class="m-next-chips" id="mNextListMob"></div>
+    </div>
+
+    <!-- Feedback Notice Pill (Aktionen, Dreh-Hinweise, Ton) -->
+    <div class="m-notice-pill" id="mNoticeMob"></div>
   </section>
 
   <!-- Spielfeld (Stage) -->
@@ -645,10 +670,22 @@ canvas {
 </div>
 
 <script>
+(function(){
+'use strict';
+/* Alles laeuft gekapselt ab — nichts davon kann mit WordPress,
+   dem Theme oder anderen Plugins ins Gehege kommen. */
+function byId(id){ return document.getElementById('gslsp-' + id) || document.getElementById(id); }
+/* Die Pfeiltasten und die Leertaste sollen nur dann ins Spiel gehen,
+   wenn das Spielfeld wirklich im Bild ist — sonst koennte man die
+   WordPress-Seite nicht mehr normal scrollen. */
+function gameVisible(){
+  var cv = byId('cv');
+  if (!cv) return false;
+  var r = cv.getBoundingClientRect();
+  return r.bottom > 40 && r.top < (window.innerHeight || 0) - 40;
+}
 /* ===== Stauplan — Spiellogik ===== */
-'use strict';
 
-'use strict';
 
 var COLS = 9, ROWS = 9, CELL = 32;
 var KM = 8.8;            // Metazentrum über Kiel (m)
@@ -673,15 +710,15 @@ function isStruct(y, x){
 }
 
 var PIECES = [
-  { n:'Stahl-Coils',    s:[[1,1]],           t:850, c:'#8894A0', k:'coil',  d:'schwer und klein — gehören ganz nach unten' },
-  { n:'Rohrbündel',     s:[[1,1,1]],         t:280, c:'#5C6E7A', k:'pipes', d:'rollt gern, will gut gelascht werden' },
-  { n:'Stahlbrammen',   s:[[1,1,1]],         t:420, c:'#8A4B4C', k:'slab',  d:'Punktlast — Tankdecke beachten' },
-  { n:'Zellstoffballen',s:[[1,1],[1,1]],     t:110, c:'#D9C9A8', k:'bale',  d:'leicht und sperrig — darf nach oben' },
-  { n:'Projektstück',   s:[[1,1,1],[1,1,0]], t:270, c:'#4C7189', k:'crate', d:'unteilbar und unhandlich' },
-  { n:'Rotorblatt',     s:[[1,1,1,1]],       t:70,  c:'#DCE3E8', k:'blade', d:'federleicht, endlos lang' },
-  { n:'Sackware',       s:[[1,1],[1,0]],     t:170, c:'#B08D57', k:'sack',  d:'Stückgut, staut sich krumm' },
-  { n:'Getreide',       s:[[1,1,1]],         t:150, c:'#C9A85C', k:'bulk',  d:'Schüttgut — fließt und sucht sich seinen Platz', units:7 },
-  { n:'Zellstoff lose', s:[[1,1]],           t:120, c:'#CBBFA4', k:'bulk',  d:'Schüttgut — rieselt in jede Ecke', units:5 }
+  { n:'Stahl-Coils',    s:[[1,1]],           t:850, c:'#8894A0', k:'coil',  d:'schwer und klein — gehören ganz nach unten', tip:'Schwer & kompakt — ganz nach unten stauen' },
+  { n:'Rohrbündel',     s:[[1,1,1]],         t:280, c:'#5C6E7A', k:'pipes', d:'rollt gern, will gut gelascht werden', tip:'Rollt leicht — muss gut gelascht werden' },
+  { n:'Stahlbrammen',   s:[[1,1,1]],         t:420, c:'#8A4B4C', k:'slab',  d:'Punktlast — Tankdecke beachten', tip:'Hohe Punktlast — auf Tankdecke achten' },
+  { n:'Zellstoffballen',s:[[1,1],[1,1]],     t:110, c:'#D9C9A8', k:'bale',  d:'leicht und sperrig — darf nach oben', tip:'Leicht & sperrig — gehört nach oben' },
+  { n:'Projektstück',   s:[[1,1,1],[1,1,0]], t:270, c:'#4C7189', k:'crate', d:'unteilbar und unhandlich', tip:'Unteilbar & unhandlich — mittig stauen' },
+  { n:'Rotorblatt',     s:[[1,1,1,1]],       t:70,  c:'#DCE3E8', k:'blade', d:'federleicht, endlos lang', tip:'Federleicht & lang — nimmt ganzes Deck' },
+  { n:'Sackware',       s:[[1,1],[1,0]],     t:170, c:'#B08D57', k:'sack',  d:'Stückgut, staut sich krumm', tip:'Stückgut — staut sich krumm, verkeilen' },
+  { n:'Getreide',       s:[[1,1,1]],         t:150, c:'#C9A85C', k:'bulk',  d:'Schüttgut — fließt und sucht sich seinen Platz', tip:'Schüttgut — fließt, nicht drehbar', units:7 },
+  { n:'Zellstoff lose', s:[[1,1]],           t:120, c:'#CBBFA4', k:'bulk',  d:'Schüttgut — rieselt in jede Ecke', tip:'Schüttgut — rieselt, nicht drehbar', units:5 }
 ];
 
 var grid, cur, nextQ, state, heel, heelTarget, stats, waveT, rollT, msg, best;
@@ -775,6 +812,8 @@ function settle(){
       }
     }
   }
+  playCargoThump();
+  showNotice('✓ ' + cur.p.n + ' gestaut', 'ok');
   recompute();
   cargoShift();
   if (stats.fail){ endGame(stats.fail); return; }
@@ -834,7 +873,12 @@ function cargoShift(){
     moved++;
     recompute();
   }
-  if (moved){ shiftFlash = 95; shiftCount += moved; }
+  if (moved){
+    shiftFlash = 95;
+    shiftCount += moved;
+    playCargoShiftSound();
+    showNotice('🚨 Ladung nach Lee verrutscht!', 'bad');
+  }
   return moved;
 }
 
@@ -907,7 +951,7 @@ function recompute(){
 }
 
 /* --- Ablauf --- */
-var departT = 0, DEPART_DUR = 230;
+var departT = 0, DEPART_DUR = 320;
 
 function reset(){
   grid = emptyGrid();
@@ -937,19 +981,28 @@ function endGame(why){
 
 function seaTrial(){
   if (state !== 'play' && state !== 'over') return;
-  // Ladung wandert nur in eine Richtung: einmal nach Lee gerutscht, kommt sie nicht zurück
   seaDir = Math.abs(stats.heel) > 0.4 ? (stats.heel > 0 ? 1 : -1) : (Math.random() < 0.5 ? 1 : -1);
   wx = WEATHER[Math.floor(Math.random() * WEATHER.length)];
   state = 'depart';
   departT = 0;
   rollT = 0;
   shiftCount = 0;
-  playShipHorn();
+  playShipHorn(true);
+  var sNote = byId('seaNote');
+  if (sNote){
+    sNote.style.display = 'block';
+    sNote.textContent = '🌊 Leinen los! Handysize-Bulker legt ab — Kurs Nordatlantik (' + wx.n + ') …';
+  }
   render();
 }
 function finishSea(){
-  if (Math.abs(stats.heel) > SHIFT_START || stats.gm < 0.80) endGame('sea');
-  else endGame('safe');
+  if (Math.abs(stats.heel) > SHIFT_START || stats.gm < 0.80){
+    playShipHorn(false);
+    endGame('sea');
+  } else {
+    playShipsBell();
+    endGame('safe');
+  }
 }
 function rollAmplitude(){
   var gm = Math.max(0.2, stats.gm);
@@ -957,16 +1010,53 @@ function rollAmplitude(){
 }
 
 /* --- Steuerung --- */
+var noticeTimer = null;
+function showNotice(msg, tone){
+  var el = byId('mNoticeMob');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'm-notice-pill show ' + (tone || 'info');
+  if (noticeTimer) clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(function(){
+    el.className = 'm-notice-pill';
+  }, 2600);
+}
+
 function move(dx){
   if (state !== 'play') return;
-  if (!collide(cur.x + dx, cur.y, cur.s)){ cur.x += dx; render(); }
+  if (!collide(cur.x + dx, cur.y, cur.s)){
+    cur.x += dx;
+    playClick();
+    render();
+  }
 }
 function turn(){
-  if (state !== 'play' || cur.p.k === 'bulk') return;
-  var r = rotate(cur.s), nx = cur.x;
-  while (nx + r[0].length > COLS) nx--;
-  if (nx < 0) return;
-  if (!collide(nx, cur.y, r)){ cur.s = r; cur.x = nx; render(); }
+  if (state !== 'play') return;
+  if (!cur) return;
+  if (cur.p.k === 'bulk'){
+    showNotice('🌾 ' + cur.p.n + ' ist Schüttgut — fließt und kann nicht gedreht werden', 'warn');
+    if (navigator.vibrate) try { navigator.vibrate([15, 60, 15]); } catch(e){}
+    return;
+  }
+  var r = rotate(cur.s);
+  var kicks = [0, -1, 1, -2, 2, -3, 3];
+  for (var i = 0; i < kicks.length; i++){
+    var nx = cur.x + kicks[i];
+    if (nx >= 0 && nx + r[0].length <= COLS){
+      for (var dy = 0; dy >= -1; dy--){
+        var ny = cur.y + dy;
+        if (ny >= 0 && !collide(nx, ny, r)){
+          cur.s = r;
+          cur.x = nx;
+          cur.y = ny;
+          playClick();
+          render();
+          return;
+        }
+      }
+    }
+  }
+  showNotice('⚠️ Drehung blockiert — kein Freiraum', 'warn');
 }
 function step(){
   if (state !== 'play') return;
@@ -984,7 +1074,7 @@ function drop(){
 var cv, ctx, W, H, GEO = {};
 
 function initCanvas(){
-  cv = document.getElementById('cv');
+  cv = byId('cv');
   ctx = cv.getContext('2d');
   fit();
   window.addEventListener('resize', function(){ fit(); render(); });
@@ -996,7 +1086,6 @@ function fit(){
   var isMobile = w <= 640;
   var scale, h;
   if (isMobile){
-    // Großzügigerer Maßstab für Smartphones: 50% größere Laderaum-Zellen und höheres Spielfenster
     scale = Math.max(0.65, Math.min(0.77, w / 510));
     h = Math.round(Math.min(430, Math.max(350, w * 0.96)));
   } else {
@@ -1017,82 +1106,181 @@ function fit(){
 var audioCtx = null;
 var soundEnabled = true;
 
-function initAudio(){
+function getAudioContext(){
   if (!audioCtx){
     var AC = window.AudioContext || window.webkitAudioContext;
-    if (AC) audioCtx = new AC();
+    if (AC){
+      try { audioCtx = new AC(); } catch(e){}
+    }
   }
   if (audioCtx && audioCtx.state === 'suspended'){
-    audioCtx.resume();
+    try { audioCtx.resume(); } catch(e){}
+  }
+  return audioCtx;
+}
+
+function unlockAudio(){
+  var ac = getAudioContext();
+  if (ac){
+    try {
+      var buf = ac.createBuffer(1, 1, 22050);
+      var src = ac.createBufferSource();
+      src.buffer = buf;
+      src.connect(ac.destination);
+      src.start(0);
+    } catch(e){}
   }
 }
 
-function playShipHorn(){
+// Sofortige Entsperrung bei jeder Benutzerinteraktion (Touch, Klick, Taste)
+['touchstart', 'touchend', 'pointerdown', 'click', 'keydown'].forEach(function(evt){
+  document.addEventListener(evt, unlockAudio, { passive: true });
+});
+
+function playShipHorn(isDouble){
   if (!soundEnabled) return;
+  var ac = getAudioContext();
+  if (!ac) return;
+
+  function doPlay(){
+    try {
+      var now = ac.currentTime;
+      function blast(delay, dur){
+        var t = now + delay;
+        var osc1 = ac.createOscillator();
+        var osc2 = ac.createOscillator();
+        var sub  = ac.createOscillator();
+
+        osc1.type = 'sawtooth';
+        osc1.frequency.setValueAtTime(104, t);
+        osc2.type = 'sawtooth';
+        osc2.frequency.setValueAtTime(108, t);
+        sub.type  = 'sine';
+        sub.frequency.setValueAtTime(52, t);
+
+        var filter = ac.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(460, t);
+        filter.frequency.exponentialRampToValueAtTime(260, t + dur);
+
+        var gain = ac.createGain();
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.linearRampToValueAtTime(0.36, t + 0.16);
+        gain.gain.setValueAtTime(0.36, t + dur - 0.22);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.45);
+
+        osc1.connect(filter);
+        osc2.connect(filter);
+        sub.connect(filter);
+        filter.connect(gain);
+        gain.connect(ac.destination);
+
+        osc1.start(t);
+        osc2.start(t);
+        sub.start(t);
+        osc1.stop(t + dur + 0.5);
+        osc2.stop(t + dur + 0.5);
+        sub.stop(t + dur + 0.5);
+      }
+
+      blast(0.05, 1.4);
+      if (isDouble){
+        blast(1.85, 1.8);
+      }
+    } catch(err){}
+  }
+
+  if (ac.state === 'suspended'){
+    ac.resume().then(doPlay).catch(function(){});
+  } else {
+    doPlay();
+  }
+}
+
+function playCargoThump(){
+  if (!soundEnabled) return;
+  var ac = getAudioContext();
+  if (!ac) return;
   try {
-    initAudio();
-    if (!audioCtx) return;
-    var t = audioCtx.currentTime;
-
-    // Tiefes, sonores Doppelton-Schiffshorn (104 Hz & 107.5 Hz Schwebung)
-    var osc1 = audioCtx.createOscillator();
-    var osc2 = audioCtx.createOscillator();
-    var osc3 = audioCtx.createOscillator();
-    var sub  = audioCtx.createOscillator();
-
-    osc1.type = 'sawtooth';
-    osc1.frequency.setValueAtTime(104, t);
-    osc2.type = 'sawtooth';
-    osc2.frequency.setValueAtTime(107.5, t);
-    osc3.type = 'triangle';
-    osc3.frequency.setValueAtTime(208, t);
-    sub.type  = 'sine';
-    sub.frequency.setValueAtTime(52, t);
-
-    var filter = audioCtx.createBiquadFilter();
+    var t = ac.currentTime;
+    var osc = ac.createOscillator();
+    var filter = ac.createBiquadFilter();
+    var gain = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(95, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 0.14);
     filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(460, t);
-    filter.frequency.exponentialRampToValueAtTime(280, t + 2.5);
-
-    var gain = audioCtx.createGain();
-    gain.gain.setValueAtTime(0.0001, t);
-    gain.gain.linearRampToValueAtTime(0.38, t + 0.22);
-    gain.gain.setValueAtTime(0.38, t + 1.8);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 3.2);
-
-    osc1.connect(filter);
-    osc2.connect(filter);
-    osc3.connect(filter);
-    sub.connect(filter);
+    filter.frequency.setValueAtTime(220, t);
+    gain.gain.setValueAtTime(0.24, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    osc.connect(filter);
     filter.connect(gain);
-    gain.connect(audioCtx.destination);
+    gain.connect(ac.destination);
+    osc.start(t);
+    osc.stop(t + 0.18);
+  } catch(e){}
+}
 
-    osc1.start(t);
-    osc2.start(t);
-    osc3.start(t);
-    sub.start(t);
-    osc1.stop(t + 3.3);
-    osc2.stop(t + 3.3);
-    osc3.stop(t + 3.3);
-    sub.stop(t + 3.3);
+function playClick(){
+  if (!soundEnabled) return;
+  var ac = getAudioContext();
+  if (!ac) return;
+  try {
+    var t = ac.currentTime;
+    var osc = ac.createOscillator();
+    var gain = ac.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(950, t);
+    osc.frequency.exponentialRampToValueAtTime(220, t + 0.03);
+    gain.gain.setValueAtTime(0.07, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(t);
+    osc.stop(t + 0.035);
+  } catch(e){}
+}
 
-    setTimeout(function(){
-      if (!soundEnabled || !audioCtx) return;
-      try {
-        var tb = audioCtx.currentTime;
-        var bell = audioCtx.createOscillator();
-        var bg = audioCtx.createGain();
-        bell.type = 'sine';
-        bell.frequency.setValueAtTime(920, tb);
-        bg.gain.setValueAtTime(0.08, tb);
-        bg.gain.exponentialRampToValueAtTime(0.0001, tb + 1.6);
-        bell.connect(bg);
-        bg.connect(audioCtx.destination);
-        bell.start(tb);
-        bell.stop(tb + 1.7);
-      } catch(e){}
-    }, 2200);
-  } catch(err){}
+function playCargoShiftSound(){
+  if (!soundEnabled) return;
+  var ac = getAudioContext();
+  if (!ac) return;
+  try {
+    var t = ac.currentTime;
+    var osc = ac.createOscillator();
+    var gain = ac.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.linearRampToValueAtTime(80, t + 0.32);
+    gain.gain.setValueAtTime(0.12, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.36);
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(t);
+    osc.stop(t + 0.38);
+  } catch(e){}
+}
+
+function playShipsBell(){
+  if (!soundEnabled) return;
+  var ac = getAudioContext();
+  if (!ac) return;
+  try {
+    [0, 0.28, 0.70, 0.98].forEach(function(d){
+      var t = ac.currentTime + d;
+      var osc1 = ac.createOscillator();
+      var osc2 = ac.createOscillator();
+      var gain = ac.createGain();
+      osc1.type = 'sine'; osc1.frequency.setValueAtTime(1175, t);
+      osc2.type = 'sine'; osc2.frequency.setValueAtTime(2350, t);
+      gain.gain.setValueAtTime(0.16, t);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      osc1.connect(gain); osc2.connect(gain);
+      gain.connect(ac.destination);
+      osc1.start(t); osc2.start(t);
+      osc1.stop(t + 0.48); osc2.stop(t + 0.48);
+    });
+  } catch(e){}
 }
 
 /* ---------- Ladungsformen ---------- */
@@ -1931,41 +2119,84 @@ function drawShipProfile(sc, shipCx, cy, shipSink, visualHeel, isDeparting, depa
   ctx.restore();
 }
 
-/* Vordergrundwasser mit Schraubenwasser beim Ablegen & Seegang */
-function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shipSink, visualHeel){
-  ctx.save();
-  var sternX = shipCx - 365 * sc;
+/* Kielwasser / Schaumschweif bei Fahrt in die Ferne */
+function drawSeaWake(sc, W, H, shipCx, cy, shipScale, t, departProg){
+  if (departProg < 0.15) return;
+  var wakeProg = Math.min(1, (departProg - 0.15) / 0.85);
+  var sternX = shipCx - 360 * sc * shipScale;
+  var sternY = cy + 12 * sc * shipScale;
 
-  // 1. Schäumendes Schraubenwasser am Heck beim Ablegen
-  if (isDeparting && departProg > 0.15){
-    var washIntensity = Math.min(1, (departProg - 0.15) / 0.35);
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(sternX, sternY - 4 * sc * shipScale);
+  ctx.quadraticCurveTo(sternX - 110 * sc, sternY + 8 * sc, sternX - 320 * sc * wakeProg, sternY + 28 * sc);
+  ctx.lineTo(sternX - 320 * sc * wakeProg, sternY + 44 * sc);
+  ctx.quadraticCurveTo(sternX - 110 * sc, sternY + 18 * sc, sternX, sternY + 6 * sc * shipScale);
+  ctx.closePath();
+
+  var wg = ctx.createLinearGradient(sternX, 0, sternX - 320 * sc * wakeProg, 0);
+  wg.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
+  wg.addColorStop(0.3, 'rgba(215, 240, 255, 0.42)');
+  wg.addColorStop(0.8, 'rgba(180, 220, 240, 0.15)');
+  wg.addColorStop(1, 'rgba(180, 220, 240, 0.0)');
+  ctx.fillStyle = wg;
+  ctx.fill();
+
+  for (var i = 0; i < 10; i++){
+    var frac = (i + (t * 0.08) % 1) / 10;
+    var bx = sternX - frac * 300 * sc * wakeProg;
+    var by = sternY + (frac * 16 - 3) * sc + Math.sin(t * 0.35 + i) * 4 * sc;
+    var br = (2.5 + frac * 7) * sc;
+    ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.55 - frac * 0.45) + ')';
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, 7);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* Vordergrundwasser: Lässt den aufgeschnittenen Laderaum im Hafen 100% frei */
+function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shipSink, visualHeel, shipScale, holdX, hy, curHoldW, curHoldH){
+  ctx.save();
+  var sternX = shipCx - 365 * sc * (shipScale || 1);
+
+  // 1. Kielwasser beim Auslaufen in die Ferne
+  if (isDeparting || state === 'sea'){
+    drawSeaWake(sc, W, H, shipCx, cy, shipScale || 1, t, departProg);
+  }
+
+  // 2. Schäumendes Schraubenwasser am Heck beim ersten Ablegen
+  if (isDeparting && departProg > 0.08 && departProg < 0.6){
+    var washIntensity = Math.min(1, (departProg - 0.08) / 0.25);
     var washX = sternX + 25 * sc;
-    var washY = waterY + 14 * sc;
+    var washY = waterY + 12 * sc;
 
     ctx.save();
-    for (var b = 0; b < 20; b++){
-      var bRadius = (8 + b * 2.8) * sc * washIntensity;
-      var bx = washX - b * 12 * sc * washIntensity + Math.sin(t * 0.4 + b) * 12 * sc;
-      var by = washY + Math.cos(t * 0.5 + b * 2) * 8 * sc;
-      ctx.fillStyle = (b % 2 === 0) ? 'rgba(255,255,255,.75)' : 'rgba(175,225,245,.65)';
+    for (var b = 0; b < 16; b++){
+      var bRadius = (7 + b * 2.5) * sc * washIntensity;
+      var bx = washX - b * 11 * sc * washIntensity + Math.sin(t * 0.4 + b) * 10 * sc;
+      var by = washY + Math.cos(t * 0.5 + b * 2) * 7 * sc;
+      ctx.fillStyle = (b % 2 === 0) ? 'rgba(255,255,255,.75)' : 'rgba(175,225,245,.60)';
       ctx.beginPath();
       ctx.arc(bx, by, bRadius, 0, 7);
       ctx.fill();
     }
-    ctx.strokeStyle = 'rgba(255,255,255,.85)';
-    ctx.lineWidth = 2.4 * sc;
-    for (var w = 0; w < 3; w++){
-      ctx.beginPath();
-      ctx.arc(washX - w * 20 * sc, washY, (15 + w * 14) * sc, 0.6, 2.8);
-      ctx.stroke();
-    }
     ctx.restore();
   }
 
-  // 2. Vordergrund-Wasserfläche mit gedämpfter, realistischer Wellenhöhe
-  var seaWaveAmp = (state === 'sea') ? Math.min(3.2 * sc, 2.0 * wx.f * sc) : 1.4 * sc;
-  var wg = ctx.createLinearGradient(0, waterY, 0, H);
-  wg.addColorStop(0, 'rgba(12, 54, 80, 0.90)');
+  // 3. Vordergrund-Wasserfläche (im Hafen wird der Laderaum ausgespart)
+  ctx.save();
+  if (state === 'play' || (state === 'over' && msg && msg[2] !== 'sea' && msg[2] !== 'safe')){
+    // Counter-winding Clip: gesamte Fläche MINUS Laderaum-Ausschnitt
+    ctx.beginPath();
+    ctx.rect(0, 0, W, H);
+    ctx.rect(holdX, hy + curHoldH, curHoldW, -curHoldH);
+    ctx.clip();
+  }
+
+  var seaWaveAmp = (state === 'sea') ? Math.min(4.2 * sc, 2.2 * wx.f * sc) : 1.2 * sc;
+  var wg = ctx.createLinearGradient(0, waterY - 8 * sc, 0, H);
+  wg.addColorStop(0, 'rgba(12, 54, 80, 0.92)');
   wg.addColorStop(0.4, 'rgba(7, 34, 54, 0.96)');
   wg.addColorStop(1, '#02121C');
 
@@ -1992,16 +2223,18 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shi
   }
   ctx.stroke();
 
+  ctx.restore(); // Ende Clip-Schutz
+
   // Gischtkronen auf See
   if (state === 'sea' && wx.f > 0.9){
-    ctx.strokeStyle = 'rgba(255,255,255,.60)';
-    ctx.lineWidth = 1.5 * sc;
+    ctx.strokeStyle = 'rgba(255,255,255,.65)';
+    ctx.lineWidth = 1.8 * sc;
     for (var c = 0; c < 4; c++){
       var cxPos = ((c * 170 + t * 25) % (W + 80)) - 40;
       var cyPos = waterY + 9 * sc + c * 14 * sc;
       ctx.beginPath();
-      ctx.moveTo(cxPos - 10 * sc, cyPos);
-      ctx.quadraticCurveTo(cxPos, cyPos - 3 * sc, cxPos + 10 * sc, cyPos);
+      ctx.moveTo(cxPos - 12 * sc, cyPos);
+      ctx.quadraticCurveTo(cxPos, cyPos - 4 * sc, cxPos + 12 * sc, cyPos);
       ctx.stroke();
     }
   }
@@ -2009,7 +2242,7 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shi
   ctx.restore();
 }
 
-/* Haupt-Rendering */
+/* Haupt-Rendering mit Fahrt in die Ferne beim Auslaufen */
 function render(){
   if (!ctx) return;
   var sc = parseFloat(cv.dataset.scale) || 1;
@@ -2017,49 +2250,83 @@ function render(){
   var holdW = COLS * cell, holdH = ROWS * cell;
 
   var baseShipCx = W * 0.52;
-  var centerShipCx = W * 0.50;
   var shipCx = baseShipCx;
   var quayOffset = 0;
   var departProg = 0;
+  var shipScale = 1.0;
+  var isMobile = W <= 640;
+  var cyBase = isMobile ? H * 0.51 : H * 0.56;
+  var cy = cyBase;
 
   if (state === 'play'){
     shipCx = baseShipCx;
     quayOffset = 0;
     departProg = 0;
+    shipScale = 1.0;
+    cy = cyBase;
   } else if (state === 'depart'){
     var p = Math.min(1, departT / DEPART_DUR);
     departProg = p;
-    var easeP = p < 0.5 ? 2 * p * p : -1 + (4 - 2 * p) * p;
-    quayOffset = -easeP * 420 * sc;
-    shipCx = baseShipCx + (centerShipCx - baseShipCx) * easeP;
-    if (p > 0.15 && p < 0.65){
-      var push = Math.sin((p - 0.15) / 0.50 * Math.PI) * 14 * sc;
-      shipCx += push;
+    if (p < 0.25){
+      // Phase 1: Schiff legt von Kaimauer ab
+      var castP = p / 0.25;
+      quayOffset = -castP * castP * 140 * sc;
+      shipCx = baseShipCx + (W * 0.51 - baseShipCx) * castP;
+      shipScale = 1.0;
+      cy = cyBase;
+    } else {
+      // Phase 2: Schiff fährt hinaus aufs offene Meer in die Ferne
+      var distP = (p - 0.25) / 0.75;
+      var easeDist = distP * distP * (3 - 2 * distP);
+      quayOffset = -140 * sc - easeDist * 850 * sc;
+      shipScale = 1.0 - 0.46 * easeDist; // Verkleinert sich stufenlos von 1.0 auf 0.54
+      cy = cyBase - (cyBase - (isMobile ? H * 0.44 : H * 0.42)) * easeDist; // Zieht Richtung Horizont
+      shipCx = W * 0.51 + (W * 0.55 - W * 0.51) * easeDist;
     }
   } else if (state === 'sea'){
-    shipCx = centerShipCx;
-    quayOffset = -500 * sc;
     departProg = 1;
+    shipScale = 0.54;
+    quayOffset = -999 * sc;
+    cy = isMobile ? H * 0.44 : H * 0.42;
+    shipCx = W * 0.55 + Math.sin(rollT / 55) * 10 * sc;
   } else if (state === 'over'){
     if (msg && (msg[2] === 'sea' || msg[2] === 'safe')){
-      shipCx = centerShipCx;
-      quayOffset = -500 * sc;
       departProg = 1;
+      shipScale = 0.54;
+      quayOffset = -999 * sc;
+      cy = isMobile ? H * 0.44 : H * 0.42;
+      shipCx = W * 0.55;
     } else {
+      shipScale = 1.0;
       shipCx = baseShipCx;
       quayOffset = 0;
       departProg = 0;
+      cy = cyBase;
     }
   }
 
-  var shipSink = Math.min(18 * sc, (stats.weight / DWT_MAX) * 18 * sc);
-  var isMobile = W <= 640;
-  var cy = isMobile ? H * 0.51 : H * 0.57;
-  var hy = cy - holdH / 2;
-  var holdX = shipCx - holdW / 2;
-  var holdBottom = hy + holdH;
-  var pierY = isMobile ? (cy + holdH / 2 - 38 * sc) : (cy + holdH / 2 - 70 * sc);
-  var waterY = holdBottom + 6 * sc + shipSink * 0.5 + (state === 'sea' ? Math.sin(waveT / 24) * 2 : 0);
+  var curSc = sc * shipScale;
+  var curCell = CELL * curSc;
+  var curHoldW = COLS * curCell, curHoldH = ROWS * curCell;
+  var curHoldX = shipCx - curHoldW / 2;
+  var curShipSink = Math.min(18 * curSc, (stats.weight / DWT_MAX) * 18 * curSc);
+
+  // Stampfen / Rollen
+  var visualHeel = heel;
+  if (state === 'sea'){
+    var amp = rollAmplitude();
+    var period = Math.max(1.6, 5.2 - stats.gm * 0.9);
+    visualHeel = stats.heel + Math.sin(rollT / (period * 9)) * amp;
+  }
+  var bob = (state === 'sea' ? Math.sin(waveT / 24) * 6 * curSc : Math.sin(waveT / 35) * 1.5 * curSc);
+  var currentCy = cy + curShipSink + bob;
+  var curHy = currentCy - curHoldH / 2;
+  var curHoldBottom = curHy + curHoldH;
+
+  var pierY = isMobile ? (cyBase + holdH / 2 - 38 * sc) : (cyBase + holdH / 2 - 70 * sc);
+
+  // Wasserlinie liegt an der Kielsohle/Doppelboden — die 1. Lage Ladung ist VOLL SICHTBAR
+  var waterY = curHoldBottom + 16 * curSc + (state === 'sea' ? Math.sin(waveT / 24) * 2 * sc : 0);
 
   ctx.clearRect(0, 0, W, H);
 
@@ -2069,28 +2336,19 @@ function render(){
   // 2. Kaimauer
   drawQuay(sc, quayOffset, pierY, waterY, state === 'depart', departProg, waveT);
 
-  // 3. Krängung & Stampfen
-  var visualHeel = heel;
-  if (state === 'sea'){
-    var amp = rollAmplitude();
-    var period = Math.max(1.6, 5.2 - stats.gm * 0.9);
-    visualHeel = stats.heel + Math.sin(rollT / (period * 9)) * amp;
-  }
-  var bob = (state === 'sea' ? Math.sin(waveT / 24) * 6 : Math.sin(waveT / 35) * 1.5);
-
-  // 4. Portalkran (steht fest auf den Schienen der Kaimauer)
-  var curXPixels = holdX + holdW / 2;
+  // 3. Portalkran (steht fest auf den Schienen der Kaimauer)
+  var curXPixels = (shipCx - holdW / 2) + holdW / 2;
   if (cur){
     var wCur = cur.s[0].length;
-    curXPixels = holdX + (cur.x + wCur / 2) * cell;
+    curXPixels = (shipCx - holdW / 2) + (cur.x + wCur / 2) * cell;
   }
-  drawGroundedCrane(sc, quayOffset, pierY, curXPixels, state === 'depart', departProg, waveT, cell, holdX, hy + shipSink + bob, shipCx);
+  drawGroundedCrane(sc, quayOffset, pierY, curXPixels, state === 'depart', departProg, waveT, cell, shipCx - holdW / 2, cyBase - holdH / 2 + curShipSink + bob, shipCx);
 
-  // 5. Bulk Carrier in Seitenansicht mit Glaswand-Cutaway
-  drawShipProfile(sc, shipCx, cy + shipSink + bob, shipSink, visualHeel, state === 'depart', departProg, waveT, cell, holdW, holdH);
+  // 4. Bulk Carrier in Seitenansicht mit Glaswand-Cutaway (skaliert dynamisch mit shipScale)
+  drawShipProfile(curSc, shipCx, currentCy, curShipSink, visualHeel, state === 'depart', departProg, waveT, curCell, curHoldW, curHoldH);
 
-  // 6. Vordergrund-Wasser
-  drawWater(sc, W, H, waterY, waveT, state === 'depart', departProg, shipCx, cy + shipSink + bob, shipSink, visualHeel);
+  // 5. Vordergrund-Wasser (mit Schaumschweif und Aussparung für Laderaum im Hafen)
+  drawWater(sc, W, H, waterY, waveT, state === 'depart', departProg, shipCx, currentCy, curShipSink, visualHeel, shipScale, curHoldX, curHy, curHoldW, curHoldH);
 
   // Warnung bei verrutschter Ladung
   if (shiftFlash > 0){
@@ -2123,24 +2381,27 @@ function hud(){
   set('mWeight', s.weight.toLocaleString('de-DE') + ' t');
   set('mDwt', Math.round(s.weight / DWT_MAX * 100) + ' % der Tragfähigkeit');
   bar('bDwt', s.weight / DWT_MAX, s.weight / DWT_MAX > 0.92 ? 'red' : 'navy');
+  bar('bDwtMob', s.weight / DWT_MAX, s.weight / DWT_MAX > 0.92 ? 'red' : 'navy');
 
   set('mHeel', (s.heel >= 0 ? '' : '−') + Math.abs(s.heel).toFixed(1) + '°');
   set('mHeelSide', Math.abs(s.heel) < 0.3 ? 'aufrecht' : (s.heel > 0 ? 'Schlagseite Steuerbord' : 'Schlagseite Backbord'));
   bar('bHeel', Math.abs(s.heel) / HEEL_FAIL, Math.abs(s.heel) > HEEL_FAIL * 0.7 ? 'red' : 'navy');
+  bar('bHeelMob', Math.abs(s.heel) / HEEL_FAIL, Math.abs(s.heel) > HEEL_FAIL * 0.7 ? 'red' : 'navy');
 
   set('mGm', s.gm.toFixed(2) + ' m');
   var gmTxt = 'gut', gmCls = 'ok';
   if (s.gm < GM_MIN + 0.25){ gmTxt = 'rangig — zu kopflastig'; gmCls = 'bad'; }
   else if (s.gm > GM_STIFF){ gmTxt = 'steif — rollt hart'; gmCls = 'warn'; }
   set('mGmTxt', gmTxt);
-  document.getElementById('mGmTxt').className = 'sub ' + gmCls;
+  var gmElD = byId('mGmTxt'); if (gmElD) gmElD.className = 'sub ' + gmCls;
   bar('bGm', Math.min(1, s.gm / 4), gmCls === 'bad' ? 'red' : (gmCls === 'warn' ? 'amber' : 'green'));
+  bar('bGmMob', Math.min(1, s.gm / 4), gmCls === 'bad' ? 'red' : (gmCls === 'warn' ? 'amber' : 'green'));
 
   set('mBroken', s.broken + ' %');
   set('mShift', shiftCount ? shiftCount + '×' : '—');
   set('mBest', best ? best.toLocaleString('de-DE') + ' t' : '—');
 
-  var nx = document.getElementById('nextList');
+  var nx = byId('nextList');
   if (nx && state === 'play'){
     nx.innerHTML = nextQ.map(function(q, i){
       var tons = q.p.k === 'bulk' ? q.p.t * q.p.units : q.p.t * countCells(q.p.s);
@@ -2149,22 +2410,101 @@ function hud(){
         '<span><b>' + q.p.n + '</b><i>' + tons.toLocaleString('de-DE') + ' t</i></span></div>';
     }).join('');
   }
-  if (cur && state === 'play'){ set('mCur', cur.p.n); set('mCurD', cur.p.d); }
+  if (cur && state === 'play'){
+    set('mCur', cur.p.n);
+    set('mCurD', cur.p.d);
+    var curTons = cur.p.k === 'bulk' ? cur.p.t * cur.p.units : cur.p.t * countCells(cur.s);
+    set('mCurMob', cur.p.n + ' (' + curTons.toLocaleString('de-DE') + ' t)');
+    if (nextQ && nextQ[0]){
+      var nextTons = nextQ[0].p.k === 'bulk' ? nextQ[0].p.t * nextQ[0].p.units : nextQ[0].p.t * countCells(nextQ[0].p.s);
+      set('mNextMob', 'Nächstes: ' + nextQ[0].p.n + ' (' + nextTons.toLocaleString('de-DE') + ' t)');
+    }
+  }
 
-  var ov = document.getElementById('over');
+  // Mobile Telemetrie & Feedback
+  set('mWeightMob', s.weight.toLocaleString('de-DE') + ' t');
+  set('mDwtMob', Math.round(s.weight / DWT_MAX * 100) + ' % DWT');
+
+  var heelEl = byId('mHeelMob');
+  if (heelEl){
+    var absH = Math.abs(s.heel);
+    heelEl.textContent = (s.heel >= 0 ? '' : '−') + absH.toFixed(1) + '°';
+    heelEl.className = 'm-v ' + (absH > HEEL_FAIL * 0.7 ? 'bad' : (absH > SHIFT_START ? 'warn' : 'ok'));
+  }
+  set('mHeelSideMob', Math.abs(s.heel) < 0.3 ? 'gerade' : (s.heel > 0 ? 'Stb' : 'Bb'));
+
+  set('mGmMob', s.gm.toFixed(2) + ' m');
+  set('mGmTxtMob', gmTxt);
+  var gmElMob = byId('mGmTxtMob');
+  if (gmElMob) gmElMob.className = 'm-sub ' + gmCls;
+
+  set('mBrokenMob', s.broken + ' %');
+  set('mBrokenSubMob', 'Laderaum');
+
+  // Mobile Am Kranhaken Card mit Lade-Tipp
+  if (cur && state === 'play'){
+    var swEl = byId('mCurSwatchMob');
+    if (swEl) swEl.style.background = cur.p.c;
+    set('mCurMob', cur.p.n);
+    var curTonsMob = cur.p.k === 'bulk' ? cur.p.t * cur.p.units : cur.p.t * countCells(cur.s);
+    set('mCurWeightMob', curTonsMob.toLocaleString('de-DE') + ' t');
+    set('mCurTipMob', cur.p.tip ? ('💡 ' + cur.p.tip) : ('💡 ' + cur.p.d));
+  } else {
+    set('mCurMob', '—');
+    set('mCurWeightMob', '');
+    set('mCurTipMob', 'Tipp: Schweres nach unten, Leichtes nach oben');
+  }
+
+  // Mobile Nächstes Queue Chips
+  var nextChips = byId('mNextListMob');
+  if (nextChips && state === 'play' && nextQ){
+    nextChips.innerHTML = nextQ.slice(0, 3).map(function(q){
+      var tns = q.p.k === 'bulk' ? q.p.t * q.p.units : q.p.t * countCells(q.p.s);
+      return '<div class="m-chip">' +
+        '<span class="m-chip-sw" style="background:' + q.p.c + '"></span>' +
+        '<span class="m-chip-name">' + q.p.n + '</span>' +
+        '<span class="m-chip-wt">' + tns + 't</span></div>';
+    }).join('');
+  }
+
+  // Mobile Status-Pille (aktive Warnung / Feedback)
+  var alertPill = byId('mAlertMob');
+  if (alertPill){
+    if (Math.abs(s.heel) >= SHIFT_START){
+      alertPill.className = 'm-status-pill danger';
+      alertPill.textContent = '🚨 ' + Math.abs(s.heel).toFixed(1) + '° Krängung: Lose Ladung rutscht nach Lee!';
+    } else if (s.gm < GM_MIN + 0.25){
+      alertPill.className = 'm-status-pill warn';
+      alertPill.textContent = '⚠️ GM ' + s.gm.toFixed(2) + ' m: Rangig! Zu viel Gewicht oben.';
+    } else if (s.gm > GM_STIFF){
+      alertPill.className = 'm-status-pill warn';
+      alertPill.textContent = '⚠️ GM ' + s.gm.toFixed(2) + ' m: Steif! Gefahr bei Seegang.';
+    } else if (shiftCount > 0){
+      alertPill.className = 'm-status-pill danger';
+      alertPill.textContent = '⚠️ ' + shiftCount + ' Kolli nach Lee verrutscht!';
+    } else if (s.weight / DWT_MAX > 0.90){
+      alertPill.className = 'm-status-pill warn';
+      alertPill.textContent = '⚖️ ' + Math.round(s.weight / DWT_MAX * 100) + ' % Tragfähigkeit erreicht';
+    } else {
+      alertPill.className = 'm-status-pill ok';
+      alertPill.textContent = '⚓ Stauung stabil · Trimm ausgeglichen';
+    }
+  }
+
+  var ov = byId('over');
   if (state === 'over'){
     ov.style.display = 'flex';
-    document.getElementById('ovT').textContent = msg[0];
-    document.getElementById('ovB').textContent = msg[1];
-    document.getElementById('ovS').innerHTML =
+    byId('ovT').textContent = msg[0];
+    byId('ovB').textContent = msg[1];
+    byId('ovS').innerHTML =
       '<div><b>' + s.weight.toLocaleString('de-DE') + ' t</b><span>geladen</span></div>' +
       '<div><b>' + s.gm.toFixed(2) + ' m</b><span>GM</span></div>' +
       '<div><b>' + Math.abs(s.heel).toFixed(1) + '°</b><span>Krängung</span></div>' +
       '<div><b>' + s.broken + ' %</b><span>Broken Stowage</span></div>';
-    document.getElementById('ovBox').className = 'ovbox ' + (msg[2] === 'safe' ? 'good' : 'bad');
-    document.getElementById('btnSea').style.display = (msg[2] === 'voll') ? 'inline-block' : 'none';
+    byId('ovBox').className = 'ovbox ' + (msg[2] === 'safe' ? 'good' : 'bad');
+    byId('btnSea').style.display = (msg[2] === 'voll') ? 'inline-block' : 'none';
   } else { ov.style.display = 'none'; }
-  var sn = document.getElementById('seaNote');
+  var sn = byId('seaNote');
   sn.style.display = (state === 'sea' || state === 'depart') ? 'block' : 'none';
   if (state === 'depart'){
     sn.textContent = 'Leinen los · Bulk Carrier legt vom Kai ab …';
@@ -2178,9 +2518,9 @@ function countCells(s){
   for (var y = 0; y < s.length; y++){ for (var x = 0; x < s[y].length; x++){ if (s[y][x]) n++; } }
   return n;
 }
-function set(id, v){ var e = document.getElementById(id); if (e) e.textContent = v; }
+function set(id, v){ var e = byId(id); if (e) e.textContent = v; }
 function bar(id, frac, tone){
-  var e = document.getElementById(id); if (!e) return;
+  var e = byId(id); if (!e) return;
   e.style.width = Math.max(0, Math.min(100, frac * 100)) + '%';
   e.className = 'fill ' + tone;
 }
@@ -2199,7 +2539,7 @@ function loop(ts){
     render();
   } else if (state === 'depart'){
     departT += dt / 16;
-    heel += (heelTarget - heel) * 0.12;
+    heel += (heelTarget - heel) * 0.10;
     render();
     if (departT >= DEPART_DUR){
       state = 'sea';
@@ -2209,6 +2549,13 @@ function loop(ts){
     rollT += dt / 16;
     seaAcc += dt;
     if (seaAcc > 145){ seaAcc = 0; if (state === 'sea') seaTick(); }
+    var sNote = byId('seaNote');
+    if (sNote){
+      var amp2 = rollAmplitude();
+      var period2 = Math.max(1.6, 5.2 - stats.gm * 0.9);
+      var curRoll = stats.heel + Math.sin(rollT / (period2 * 9)) * amp2;
+      sNote.textContent = '🌊 Auf hoher See (' + wx.n + ') · Rollen: ' + Math.abs(curRoll).toFixed(1) + '° ' + (curRoll > 0.2 ? 'Stb' : (curRoll < -0.2 ? 'Bb' : 'aufrecht')) + ' · Stauung wird geprüft …';
+    }
     render();
     if (state === 'sea' && rollT > 540) finishSea();
   } else {
@@ -2217,104 +2564,77 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
-
-
-/* ==========================================================================
-   MOBILE ERWEITERUNGEN — HUD, Touch-Gesten & Auto-Repeat
-   ========================================================================== */
-
-function updateMobileHUD(){
-  var s = stats;
-  // Swatch für aktuelles Teil
-  var sw = document.getElementById('curSwatch');
-  if (sw && cur) {
-    sw.style.background = cur.p.c;
-  }
-  // Nächstes Teil Vorschau
-  var np = document.getElementById('mNextPreview');
-  if (np && nextQ && nextQ[0]) {
-    var nTons = nextQ[0].p.k === 'bulk' ? nextQ[0].p.t * nextQ[0].p.units : nextQ[0].p.t * countCells(nextQ[0].p.s);
-    np.innerHTML = 'Nächstes: <b>' + nextQ[0].p.n + '</b> (' + nTons.toLocaleString('de-DE') + ' t)';
-  }
-  // Krängungs-Farbe
-  var hEl = document.getElementById('mHeel');
-  if (hEl) {
-    var absH = Math.abs(s.heel);
-    hEl.className = 'hud-val ' + (absH > HEEL_FAIL * 0.7 ? 'bad' : (absH > SHIFT_START ? 'warn' : 'ok'));
-  }
-  var hsEl = document.getElementById('mHeelSide');
-  if (hsEl) {
-    var absH = Math.abs(s.heel);
-    hsEl.className = 'hud-sub ' + (absH > HEEL_FAIL * 0.7 ? 'bad' : (absH > SHIFT_START ? 'warn' : ''));
-  }
-}
-
-// Hooke in hud() ein
-var origHud = hud;
-hud = function(){
-  origHud();
-  updateMobileHUD();
-};
-
+initCanvas();
+document.addEventListener('keydown', function(e){
+  if (!gameVisible()) return;
+  initAudio();
+  var k = e.key;
+  if (k === 'ArrowLeft'){ e.preventDefault(); move(-1); }
+  else if (k === 'ArrowRight'){ e.preventDefault(); move(1); }
+  else if (k === 'ArrowUp'){ e.preventDefault(); turn(); }
+  else if (k === 'ArrowDown'){ e.preventDefault(); step(); }
+  else if (k === ' '){ e.preventDefault(); drop(); }
+});
 /* Auto-Repeat für Richtungstasten */
 function setupRepeatBtn(btn, action){
   if (!btn) return;
-  var timer = null, interval = null;
-  function trigger(){
-    initAudio();
-    action();
-    if (navigator.vibrate) try { navigator.vibrate(8); } catch(e){}
-  }
+  var timer = null, interval = null, lastFired = 0;
   function start(e){
-    if (e && e.cancelable) e.preventDefault();
-    trigger();
+    var now = Date.now();
+    if (now - lastFired < 120) return;
+    lastFired = now;
+    if (e.cancelable) e.preventDefault();
+    unlockAudio();
+    action();
+    if (navigator.vibrate) try { navigator.vibrate(8); } catch(err){}
     clearTimeout(timer);
     clearInterval(interval);
     timer = setTimeout(function(){
-      interval = setInterval(trigger, 115);
-    }, 230);
+      interval = setInterval(function(){
+        action();
+        if (navigator.vibrate) try { navigator.vibrate(6); } catch(err){}
+      }, 95);
+    }, 280);
   }
-  function stop(e){
+  function stop(){
     clearTimeout(timer);
     clearInterval(interval);
   }
+  btn.addEventListener('pointerdown', start);
+  btn.addEventListener('pointerup', stop);
+  btn.addEventListener('pointercancel', stop);
   btn.addEventListener('touchstart', start, { passive: false });
   btn.addEventListener('touchend', stop);
   btn.addEventListener('touchcancel', stop);
-  btn.addEventListener('mousedown', function(e){
-    if (e.button !== 0) return;
-    start(e);
-    var up = function(){
-      stop();
-      window.removeEventListener('mouseup', up);
-    };
-    window.addEventListener('mouseup', up);
-  });
+  btn.addEventListener('mousedown', start);
+  btn.addEventListener('mouseup', stop);
+  btn.addEventListener('mouseleave', stop);
 }
 
-/* Schnelle Aktions-Buttons */
 function setupActionBtn(btn, action){
   if (!btn) return;
-  btn.addEventListener('touchstart', function(e){
+  var lastFired = 0;
+  function trigger(e){
+    var now = Date.now();
+    if (now - lastFired < 180) return;
+    lastFired = now;
     if (e.cancelable) e.preventDefault();
-    initAudio();
+    unlockAudio();
     action();
-    if (navigator.vibrate) try { navigator.vibrate(10); } catch(err){}
-  }, { passive: false });
-  btn.addEventListener('click', function(e){
-    if (e.detail === 0) return;
-    initAudio();
-    action();
-  });
+    if (navigator.vibrate) try { navigator.vibrate(12); } catch(err){}
+  }
+  btn.addEventListener('pointerdown', trigger, { passive: false });
+  btn.addEventListener('touchstart', trigger, { passive: false });
+  btn.addEventListener('click', trigger, { passive: false });
 }
 
-/* Gestensteuerung auf dem Canvas */
 function setupCanvasGestures(){
-  if (!cv) return;
+  var cvEl = byId('cv');
+  if (!cvEl) return;
   var startX = 0, startY = 0, startTime = 0, moved = false;
   var SWIPE_X = 24, SWIPE_Y = 28;
 
-  cv.addEventListener('touchstart', function(e){
+  cvEl.addEventListener('touchstart', function(e){
     initAudio();
     if (e.touches.length === 1){
       startX = e.touches[0].clientX;
@@ -2324,7 +2644,7 @@ function setupCanvasGestures(){
     }
   }, { passive: true });
 
-  cv.addEventListener('touchmove', function(e){
+  cvEl.addEventListener('touchmove', function(e){
     if (e.touches.length === 1 && state === 'play'){
       var t = e.touches[0];
       var dx = t.clientX - startX;
@@ -2347,7 +2667,7 @@ function setupCanvasGestures(){
     }
   }, { passive: false });
 
-  cv.addEventListener('touchend', function(e){
+  cvEl.addEventListener('touchend', function(e){
     if (!moved && state === 'play'){
       var dt = Date.now() - startTime;
       if (dt < 280){
@@ -2358,59 +2678,70 @@ function setupCanvasGestures(){
   }, { passive: true });
 }
 
-/* Audio-Freischaltung für iOS */
 document.addEventListener('touchstart', function(){
   initAudio();
 }, { once: true, passive: true });
 
-/* Modal-Steuerung */
-var modal = document.getElementById('modalRules');
-document.getElementById('btnInfo').onclick = function(){
-  initAudio();
-  modal.classList.add('open');
-};
-document.getElementById('btnCloseRules').onclick = function(){
-  modal.classList.remove('open');
-};
-modal.onclick = function(e){
-  if (e.target === modal) modal.classList.remove('open');
-};
-
-/* Initialisierung */
-initCanvas();
 setupCanvasGestures();
 
-// Buttons binden
-setupRepeatBtn(document.getElementById('kL'), function(){ move(-1); });
-setupRepeatBtn(document.getElementById('kR'), function(){ move(1); });
-setupActionBtn(document.getElementById('kT'), turn);
-setupActionBtn(document.getElementById('kStep'), step);
-setupActionBtn(document.getElementById('kDrop'), drop);
+// Desktop Buttons
+setupRepeatBtn(byId('kL'), function(){ move(-1); });
+setupRepeatBtn(byId('kR'), function(){ move(1); });
+setupActionBtn(byId('kT'), turn);
+setupActionBtn(byId('kD'), drop);
+setupActionBtn(byId('btnReset'), reset);
+setupActionBtn(byId('btnAgain'), reset);
+setupActionBtn(byId('btnSea'), seaTrial);
+setupActionBtn(byId('btnSea2'), seaTrial);
 
-setupActionBtn(document.getElementById('btnSea'), seaTrial);
-setupActionBtn(document.getElementById('btnSea2'), seaTrial);
-setupActionBtn(document.getElementById('btnReset'), reset);
-setupActionBtn(document.getElementById('btnAgain'), reset);
+// Mobile Buttons
+setupRepeatBtn(byId('kLMob'), function(){ move(-1); });
+setupRepeatBtn(byId('kRMob'), function(){ move(1); });
+setupActionBtn(byId('kTMob'), turn);
+setupActionBtn(byId('kStepMob'), step);
+setupActionBtn(byId('kDropMob'), drop);
+setupActionBtn(byId('btnSeaMob'), seaTrial);
+setupActionBtn(byId('btnResetMob'), reset);
 
-var btnS = document.getElementById('btnSound');
-if (btnS){
-  btnS.onclick = function(){
-    soundEnabled = !soundEnabled;
-    this.textContent = soundEnabled ? '🔊' : '🔇';
-    if (soundEnabled) initAudio();
+// Mobile App Aliases (plain IDs)
+setupActionBtn(byId('kStep'), step);
+setupActionBtn(byId('kDrop'), drop);
+
+// Rules Modal Listener (if present on mobile)
+var btnInfo = byId('btnInfo');
+var modalRules = byId('modalRules');
+var btnCloseRules = byId('btnCloseRules');
+if (btnInfo && modalRules){
+  btnInfo.onclick = function(){ modalRules.classList.add('open'); };
+}
+if (btnCloseRules && modalRules){
+  btnCloseRules.onclick = function(){ modalRules.classList.remove('open'); };
+}
+if (modalRules){
+  modalRules.onclick = function(e){
+    if (e.target === modalRules) modalRules.classList.remove('open');
   };
 }
 
-// Tastatur-Fallback falls angeschlossen
-document.addEventListener('keydown', function(e){
-  initAudio();
-  var k = e.key;
-  if (k === 'ArrowLeft'){ e.preventDefault(); move(-1); }
-  else if (k === 'ArrowRight'){ e.preventDefault(); move(1); }
-  else if (k === 'ArrowUp'){ e.preventDefault(); turn(); }
-  else if (k === 'ArrowDown'){ e.preventDefault(); step(); }
-  else if (k === ' '){ e.preventDefault(); drop(); }
-});
+function toggleSound(){
+  soundEnabled = !soundEnabled;
+  var txt = soundEnabled ? '🔊 Hafenton: An' : '🔇 Hafenton: Aus';
+  var txtMob = soundEnabled ? '🔊 Ton: An' : '🔇 Ton: Aus';
+  var b1 = byId('btnSound'); if (b1) b1.textContent = txt;
+  var b2 = byId('btnSoundMob'); if (b2) b2.textContent = txtMob;
+  if (soundEnabled){
+    unlockAudio();
+    playClick();
+    showNotice('🔊 Hafenton eingeschaltet', 'ok');
+  } else {
+    showNotice('🔇 Hafenton stummgeschaltet', 'info');
+  }
+}
+
+var btnS = byId('btnSound');
+if (btnS) btnS.onclick = toggleSound;
+var btnSMob = byId('btnSoundMob');
+if (btnSMob) btnSMob.onclick = toggleSound;
 
 window.addEventListener('orientationchange', function(){
   setTimeout(function(){ fit(); render(); }, 120);
@@ -2418,6 +2749,7 @@ window.addEventListener('orientationchange', function(){
 
 reset();
 requestAnimationFrame(loop);
+})();
 </script>
 </body>
 </html>
