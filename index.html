@@ -740,6 +740,9 @@ function drop(){
 /* ===== Stauplan — Darstellung ===== */
 
 var cv, ctx, W, H, GEO = {};
+/* Halbe Rumpflaenge in der Seitenansicht — muss zu sternX/bowX
+   in drawShipProfile() passen. */
+var HULL_HALF_LEN = 365;
 
 function initCanvas(){
   cv = byId('cv');
@@ -1436,8 +1439,8 @@ function drawShipProfile(sc, shipCx, cy, shipSink, visualHeel, isDeparting, depa
   var hy = cy - holdH / 2;
   var deckY = hy - 14 * sc;
   var keelY = hy + holdH + 20 * sc;
-  var sternX = shipCx - 365 * sc;
-  var bowX   = shipCx + 365 * sc;
+  var sternX = shipCx - HULL_HALF_LEN * sc;
+  var bowX   = shipCx + HULL_HALF_LEN * sc;
   var wlY    = deckY + (keelY - deckY) * 0.62 + shipSink;
 
   ctx.save();
@@ -1877,10 +1880,17 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shi
   // 3. Vordergrund-Wasserfläche (im Hafen wird der Laderaum ausgespart)
   ctx.save();
   if (state === 'play' || (state === 'over' && msg && msg[2] !== 'sea' && msg[2] !== 'safe')){
-    // Counter-winding Clip: gesamte Fläche MINUS Laderaum-Ausschnitt
+    // Counter-winding Clip: gesamte Fläche MINUS Laderaum-Ausschnitt.
+    // Der Ausschnitt kippt mit dem Rumpf, sonst steht bei Kraengung eine
+    // waagerechte Kante quer im geneigten Laderaum.
     ctx.beginPath();
     ctx.rect(0, 0, W, H);
+    ctx.save();
+    ctx.translate(shipCx, cy);
+    ctx.rotate((visualHeel || 0) * Math.PI / 180);
+    ctx.translate(-shipCx, -cy);
     ctx.rect(holdX, hy + curHoldH, curHoldW, -curHoldH);
+    ctx.restore();
     ctx.clip();
   }
 
@@ -2017,6 +2027,16 @@ function render(){
 
   // Wasserlinie liegt an der Kielsohle/Doppelboden — die 1. Lage Ladung ist VOLL SICHTBAR
   var waterY = curHoldBottom + 16 * curSc + (state === 'sea' ? Math.sin(waveT / 24) * 2 * sc : 0);
+  /* Die Kraengung dreht den Rumpf um die Schiffsmitte und hebt dabei ein
+     Rumpfende an — bei 6° schon um das Zehnfache des dargestellten
+     Tiefgangs. Bliebe die Wasserlinie waagerecht liegen, stuende dieses
+     Ende frei in der Luft. Sie folgt deshalb der hoechsten Stelle der
+     gedrehten Kiellinie; bei aufrechtem Schiff aendert das nichts. */
+  var heelRad = Math.abs(visualHeel) * Math.PI / 180;
+  var keelHigh = currentCy
+    + (curHoldH / 2 + 20 * curSc) * Math.cos(heelRad)
+    - HULL_HALF_LEN * curSc * Math.sin(heelRad);
+  waterY = Math.min(waterY, keelHigh - 4 * curSc);
 
   ctx.clearRect(0, 0, W, H);
 
