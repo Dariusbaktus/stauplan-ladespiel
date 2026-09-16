@@ -14,6 +14,9 @@ Raum voll, entscheidet eine Seereise mit zufälligem Wetter, ob die Stauung häl
 kein Server, keine Fremdbibliothek, keine Cookies.
 
 Steuerung: ◀ ▶ bewegen · ▲ drehen · ▼ senken · Leertaste fallen lassen.
+Die fünf Knöpfe in der rechten Spalte machen dasselbe wie die Tasten.
+Auf dem Desktop passen Spielfeld und Anzeige-Spalte ohne Scrollen nebeneinander;
+das Spielfeld skaliert dabei mit der Fensterhöhe.
 Am Handy wahlweise über Gesten direkt auf dem Spielfeld (Wischen nach links/rechts/unten, Tippen zum Drehen) oder über die Daumen-Steuerung unter der Anzeige (inkl. Dauerbewegung bei Gedrückthalten).
 
 ## Dateien
@@ -44,6 +47,7 @@ Alles steckt in `index.html`:
 | Was | Wo |
 |---|---|
 | Schwierigkeit | `SHIFT_START` (5°, ab hier rutscht loses Gut), `HEEL_FAIL` (13°, Bruch) |
+| Größe des Spielfelds | `BASE_W`/`BASE_H` (Entwurfsmaß 820×580) und `fit()` |
 | Schiffsdaten | `KM`, `LIGHTSHIP`, `KG_LIGHT`, `DWT_MAX`, `HOLD_DEPTH` |
 | Wetter | `WEATHER` — drei Stufen mit Faktor |
 | Ladungsarten | `PIECES` — Form, Gewicht, Farbe, Beschreibung |
@@ -55,7 +59,7 @@ und sorglos. Sonst verschiebt man nur die Streuung, nicht die Schwierigkeit.
 
 ## Technik
 
-Ein einzelnes HTML mit Canvas 2D, rund 74 KB. Kein Framework, kein Build.
+Ein einzelnes HTML mit Canvas 2D, rund 125 KB. Kein Framework, kein Build.
 Einziger externer Bezug sind zwei Schriften von Google Fonts (Inter, DM Sans);
 ohne Netz greifen die Ersatzschriften. Das Logo steckt als base64-PNG in der Datei.
 Die Bestenliste gilt nur für die laufende Sitzung und wird bewusst nirgends gespeichert.
