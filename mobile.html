@@ -35,11 +35,42 @@ html, body {
   touch-action: manipulation;
   overscroll-behavior: none;
 }
+/* Im Querformat bleiben unter der Anzeige nur wenige Pixel fuers Spielfeld
+   uebrig — dann lieber sauber um Hochformat bitten. */
+.rotate-hint {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--navy);
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  text-align: center;
+}
+.rotate-card { max-width: 420px; }
+.rotate-icon { font-size: 40px; line-height: 1; margin-bottom: 10px; }
+.rotate-hint h2 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 20px;
+  color: #fff;
+  margin: 0 0 8px;
+}
+.rotate-hint p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #A8BECC;
+}
 .app {
   max-width: 500px;
   margin: 0 auto;
-  min-height: 100vh;
-  min-height: 100dvh;
+  /* Genau eine Schirmhoehe — nicht min-height, sonst waechst die Seite
+     ueber den Viewport hinaus und das Spiel muss gescrollt werden. */
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -48,6 +79,7 @@ html, body {
 
 /* Top Header */
 .top-bar {
+  flex: 0 0 auto;
   background: var(--navy);
   color: #fff;
   padding: max(10px, env(safe-area-inset-top)) 14px 10px;
@@ -59,33 +91,34 @@ html, body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  /* Darf schrumpfen: die Knoepfe rechts brauchen ihre volle Breite,
+     sonst laeuft die Kopfzeile ueber den Schirmrand hinaus. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .brand img {
-  height: 26px;
+  height: 24px;
   width: auto;
+  flex: 0 0 auto;
 }
 .brand h1 {
   font-family: 'DM Sans', sans-serif;
-  font-size: 19px;
+  font-size: 18px;
   margin: 0;
   color: #fff;
   letter-spacing: -0.01em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.brand-badge {
-  font-size: 10.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  background: rgba(255,255,255,0.18);
-  color: #E2ECF3;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
+.brand-badge { display: none; }
 .top-btns {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 0 0 auto;
 }
 .top-btn {
   background: rgba(255,255,255,0.14);
@@ -98,7 +131,11 @@ html, body {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  /* Daumenbreite — darunter trifft man auf dem Handy nicht zuverlaessig. */
+  min-height: 44px;
+  min-width: 44px;
 }
 .top-btn:active {
   background: rgba(255,255,255,0.28);
@@ -108,23 +145,28 @@ html, body {
 .hud {
   background: #fff;
   border-bottom: 1px solid var(--line);
-  padding: 8px 12px;
+  padding: 7px 10px;
+  flex: 0 0 auto;
 }
 .hud-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
 }
 .hud-card {
   background: var(--bg);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 4px;
   border: 1px solid var(--line);
   text-align: center;
+  min-width: 0;
 }
 .hud-lbl {
   display: block;
-  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -134,7 +176,7 @@ html, body {
 .hud-val {
   display: block;
   font-family: 'DM Sans', sans-serif;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--navy);
   line-height: 1.15;
@@ -145,7 +187,7 @@ html, body {
 .hud-val.ok { color: var(--ok); }
 .hud-sub {
   display: block;
-  font-size: 10.5px;
+  font-size: 9.5px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
@@ -155,6 +197,167 @@ html, body {
 .hud-sub.ok { color: var(--ok); font-weight: 600; }
 .hud-sub.warn { color: var(--amber); font-weight: 600; }
 .hud-sub.bad { color: var(--red); font-weight: 700; }
+
+/* Statuspille, Haken-Karte und Naechstes-Chips.
+   Diese Klassen fehlten in dieser Datei komplett — das Markup war da, die
+   Gestaltung nicht, deshalb stand der halbe Anzeigebereich als Fliesztext. */
+.m-status-pill {
+  margin-top: 6px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.m-status-pill.ok     { background: #EAF6F0; color: var(--ok);   border: 1px solid #B8E4CD; }
+.m-status-pill.warn   { background: #FEF9EB; color: #8A5B00;     border: 1px solid #F7E0A3; }
+.m-status-pill.danger { background: #FDF2F2; color: var(--red);  border: 1px solid #F8B4B4; }
+
+.m-cargo-card {
+  margin-top: 6px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 9px;
+}
+.m-cargo-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.m-cargo-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.m-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(0,0,0,0.2);
+  flex: 0 0 auto;
+}
+.m-cargo-name {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  color: var(--navy);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-cargo-weight {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.m-cargo-tip {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.m-next-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  min-width: 0;
+}
+.m-next-lbl {
+  font-size: 10px;
+  display: none;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.m-next-chips {
+  display: flex;
+  gap: 5px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.m-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 3px 5px;
+}
+.m-chip-sw {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(0,0,0,0.2);
+}
+.m-chip-name {
+  font-size: 10.5px;
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.m-chip-wt {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.m-notice-pill {
+  display: none;
+  margin-top: 6px;
+  padding: 5px 9px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+}
+.m-notice-pill.show { display: block; }
+.m-notice-pill.ok   { background: #EAF6F0; color: var(--ok);  border: 1px solid #B8E4CD; }
+.m-notice-pill.warn { background: #FEF9EB; color: #8A5B00;    border: 1px solid #F7E0A3; }
+.m-notice-pill.bad  { background: #FDF2F2; color: var(--red); border: 1px solid #F8B4B4; }
+.m-notice-pill.info { background: #EEF4F8; color: var(--navy);border: 1px solid #CFE0EB; }
+
+/* Kleine Handys (iPhone SE und aehnlich): dort bleiben sonst nur rund
+   100 px fuers Spielfeld uebrig. Was nicht zum Stauen noetig ist, geht. */
+@media (max-height: 700px) {
+  .top-bar { padding: max(6px, env(safe-area-inset-top)) 12px 6px; }
+  .hud { padding: 5px 8px; }
+  .hud-val { font-size: 14px; }
+  .m-status-pill { margin-top: 5px; padding: 4px 8px; font-size: 11px; }
+  .m-cargo-card { margin-top: 5px; padding: 5px 8px; }
+  .m-cargo-tip { display: none; }
+  .m-next-row { display: none; }
+  .gesture-hint { display: none; }
+  .bottom-bar { display: none; }
+  .controller { gap: 6px; }
+}
 
 /* Mini Progress Bar */
 .mini-track {
@@ -210,9 +413,13 @@ html, body {
 /* Stage / Canvas Container */
 .stage-wrap {
   padding: 6px 8px 4px;
-  flex: 1 0 auto;
+  /* Basis 0: der Rest wird unabhaengig vom Canvas verteilt, sonst misst
+     fit() eine Hoehe, die es durch sein eigenes Ergebnis erst erzeugt. */
+  flex: 1 1 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 .stage {
   position: relative;
@@ -246,13 +453,15 @@ canvas {
 /* Game Over Dialog */
 #over {
   display: none;
-  position: absolute;
+  position: fixed;
   inset: 0;
   background: rgba(0,26,43,0.88);
   align-items: center;
   justify-content: center;
   padding: 14px;
-  z-index: 20;
+  z-index: 50;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .ovbox {
   background: #fff;
@@ -260,8 +469,16 @@ canvas {
   padding: 18px 16px;
   max-width: 420px;
   width: 100%;
+  margin: auto;
   text-align: center;
   border-top: 5px solid var(--red);
+}
+@media (max-height: 700px) {
+  .ovbox { padding: 12px 14px; }
+  .ovbox h2 { font-size: 19px; margin-bottom: 5px; }
+  .ovbox p { font-size: 13px; margin-bottom: 10px; }
+  .ovs { gap: 6px; margin-bottom: 10px; }
+  .ovs div { padding: 6px 4px; }
 }
 .ovbox.good { border-top-color: var(--ok); }
 .ovbox h2 {
@@ -332,16 +549,17 @@ canvas {
 
 /* Gesture Hint */
 .gesture-hint {
+  flex: 0 0 auto;
   text-align: center;
   font-size: 11px;
   color: var(--muted);
-  padding: 4px 10px;
+  padding: 3px 10px;
 }
 
 /* Mobile Pad Controller */
 .controller {
-  padding: 4px 10px max(14px, env(safe-area-inset-bottom));
-  margin-top: auto;
+  flex: 0 0 auto;
+  padding: 4px 10px max(10px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -419,7 +637,8 @@ canvas {
   font-family: 'DM Sans', sans-serif;
   font-weight: 700;
   font-size: 13.5px;
-  padding: 10px 8px;
+  min-height: 44px;
+  padding: 11px 8px;
   border-radius: 10px;
   border: 1.5px solid var(--navy);
   background: var(--navy);
@@ -452,6 +671,10 @@ canvas {
   color: var(--navy);
   text-decoration: none;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 4px;
 }
 
 /* Info Modal */
@@ -505,9 +728,24 @@ canvas {
   margin-top: 16px;
   width: 100%;
 }
+
+/* Ganz am Schluss, damit diese Regel die .app-Grundregel ueberschreibt. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .rotate-hint { display: flex; }
+  .app { display: none; }
+}
 </style>
 </head>
 <body>
+
+<div class="rotate-hint" id="rotateHint">
+  <div class="rotate-card">
+    <div class="rotate-icon">📱</div>
+    <h2>Bitte hochkant halten</h2>
+    <p>Der Laderaum ist hoch — im Querformat bleibt kein Platz zum Stauen.
+       Dreh das Handy, dann geht es weiter.</p>
+  </div>
+</div>
 
 <div class="app">
 
@@ -540,13 +778,13 @@ canvas {
         <div class="mini-track"><div class="mini-fill" id="bHeel"></div></div>
       </div>
       <div class="hud-card">
-        <span class="hud-lbl">GM (Stabilität)</span>
+        <span class="hud-lbl">GM</span>
         <span class="hud-val" id="mGm">0.00 m</span>
         <span class="hud-sub ok" id="mGmTxt">gut</span>
         <div class="mini-track"><div class="mini-fill" id="bGm"></div></div>
       </div>
       <div class="hud-card">
-        <span class="hud-lbl">Broken St.</span>
+        <span class="hud-lbl">Broken</span>
         <span class="hud-val" id="mBroken">0 %</span>
         <span class="hud-sub" id="mBrokenSub">Laderaum</span>
         <div class="mini-track"><div class="mini-fill" id="bBroken" style="background:#6A808E;width:0%"></div></div>
@@ -1083,14 +1321,38 @@ function initCanvas(){
   window.addEventListener('resize', function(){ fit(); render(); });
 }
 
+/* Ausschnitt beim Stauen im Hafen: der Laderaum mit etwas Rumpf und dem
+   Kranausleger darueber, in Entwurfseinheiten. */
+var HOLD_VIEW_W = 330, HOLD_VIEW_H = 430;
+/* Ganze Schiffslaenge inklusive Rand — Maszstab fuer die Seereise. */
+var SHIP_VIEW_W = 870;
+
+/* Hoehe, die zwischen Anzeige und Steuerung uebrig bleibt. */
+function stageRoom(){
+  var wrap = document.querySelector('.stage-wrap');
+  if (!wrap) return 0;
+  var room = wrap.clientHeight;
+  if (window.getComputedStyle){
+    var cs = window.getComputedStyle(wrap);
+    room -= (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+  }
+  return room;
+}
+
 function fit(){
   var box = cv.parentNode.getBoundingClientRect();
-  var w = Math.max(320, Math.min(820, box.width || window.innerWidth));
+  var w = Math.max(280, Math.min(820, box.width || window.innerWidth));
   var isMobile = w <= 640;
   var scale, h;
   if (isMobile){
-    scale = Math.max(0.65, Math.min(0.77, w / 510));
-    h = Math.round(Math.min(430, Math.max(350, w * 0.96)));
+    /* Das Spielfeld nimmt den ganzen Rest zwischen Anzeige und Steuerung —
+       bisher war es auf 350..430 px festgenagelt und liesz auf groszen
+       Handys die Haelfte des Schirms ungenutzt. */
+    h = Math.round(Math.max(170, Math.min(stageRoom() || 350, w * 1.5)));
+    /* Der Maszstab richtet sich nach dem Laderaum, nicht nach der
+       Schiffslaenge: beim Stauen zaehlen gut treffbare Zellen. */
+    scale = Math.min(w / HOLD_VIEW_W, h / HOLD_VIEW_H);
+    scale = Math.max(0.42, Math.min(1.30, scale));
   } else {
     scale = Math.min(1, w / 820);
     h = Math.round(580 * scale);
@@ -2267,6 +2529,13 @@ function render(){
   var isMobile = W <= 640;
   var cyBase = isMobile ? H * 0.51 : H * 0.56;
   var cy = cyBase;
+  /* Beim Auslaufen zaehlt nicht mehr der Laderaum, sondern das ganze Schiff.
+     Auf dem Handy reicht der feste Wert 0.54 dafuer nicht — er ist auf die
+     Desktopbuehne gemuenzt. Also den Faktor ausrechnen, der die volle
+     Schiffslaenge in die Buehne bringt, und nie ueber 0.54 gehen. */
+  var seaScale = isMobile
+    ? Math.max(0.30, Math.min(0.54, W / (SHIP_VIEW_W * sc)))
+    : 0.54;
 
   if (state === 'play'){
     shipCx = baseShipCx;
@@ -2289,23 +2558,23 @@ function render(){
       var distP = (p - 0.25) / 0.75;
       var easeDist = distP * distP * (3 - 2 * distP);
       quayOffset = -140 * sc - easeDist * 850 * sc;
-      shipScale = 1.0 - 0.46 * easeDist; // Verkleinert sich stufenlos von 1.0 auf 0.54
+      shipScale = 1.0 - (1.0 - seaScale) * easeDist; // gleitet auf seaScale
       cy = cyBase - (cyBase - (isMobile ? H * 0.44 : H * 0.42)) * easeDist; // Zieht Richtung Horizont
-      shipCx = W * 0.51 + (W * 0.55 - W * 0.51) * easeDist;
+      shipCx = W * 0.51 + (W * (isMobile ? 0.50 : 0.55) - W * 0.51) * easeDist;
     }
   } else if (state === 'sea'){
     departProg = 1;
-    shipScale = 0.54;
+    shipScale = seaScale;
     quayOffset = -999 * sc;
     cy = isMobile ? H * 0.44 : H * 0.42;
-    shipCx = W * 0.55 + Math.sin(rollT / 55) * 10 * sc;
+    shipCx = W * (isMobile ? 0.50 : 0.55) + Math.sin(rollT / 55) * 10 * sc;
   } else if (state === 'over'){
     if (msg && (msg[2] === 'sea' || msg[2] === 'safe')){
       departProg = 1;
-      shipScale = 0.54;
+      shipScale = seaScale;
       quayOffset = -999 * sc;
       cy = isMobile ? H * 0.44 : H * 0.42;
-      shipCx = W * 0.55;
+      shipCx = W * (isMobile ? 0.50 : 0.55);
     } else {
       shipScale = 1.0;
       shipCx = baseShipCx;
@@ -2399,12 +2668,12 @@ function ghostY(){
 function hud(){
   var s = stats;
   set('mWeight', s.weight.toLocaleString('de-DE') + ' t');
-  set('mDwt', Math.round(s.weight / DWT_MAX * 100) + ' % der Tragfähigkeit');
+  set('mDwt', Math.round(s.weight / DWT_MAX * 100) + ' % DWT');
   bar('bDwt', s.weight / DWT_MAX, s.weight / DWT_MAX > 0.92 ? 'red' : 'navy');
   bar('bDwtMob', s.weight / DWT_MAX, s.weight / DWT_MAX > 0.92 ? 'red' : 'navy');
 
   set('mHeel', (s.heel >= 0 ? '' : '−') + Math.abs(s.heel).toFixed(1) + '°');
-  set('mHeelSide', Math.abs(s.heel) < 0.3 ? 'aufrecht' : (s.heel > 0 ? 'Schlagseite Steuerbord' : 'Schlagseite Backbord'));
+  set('mHeelSide', Math.abs(s.heel) < 0.3 ? 'aufrecht' : (s.heel > 0 ? 'Steuerbord' : 'Backbord'));
   bar('bHeel', Math.abs(s.heel) / HEEL_FAIL, Math.abs(s.heel) > HEEL_FAIL * 0.7 ? 'red' : 'navy');
   bar('bHeelMob', Math.abs(s.heel) / HEEL_FAIL, Math.abs(s.heel) > HEEL_FAIL * 0.7 ? 'red' : 'navy');
 
