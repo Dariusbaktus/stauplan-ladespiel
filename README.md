@@ -18,13 +18,14 @@ Die fünf Knöpfe in der rechten Spalte machen dasselbe wie die Tasten.
 Auf dem Desktop passen Spielfeld und Anzeige-Spalte ohne Scrollen nebeneinander;
 das Spielfeld skaliert dabei mit der Fensterhöhe.
 Am Handy wahlweise über Gesten direkt auf dem Spielfeld (Wischen nach links/rechts/unten, Tippen zum Drehen) oder über die Daumen-Steuerung unter der Anzeige (inkl. Dauerbewegung bei Gedrückthalten).
+Die Handy-Fassung braucht Hochformat — quer bleibt unter der Anzeige kein Platz zum Stauen, deshalb bittet sie dort ums Drehen.
 
 ## Dateien
 
 | Datei | Zweck |
 |---|---|
 | `index.html` | das Spiel, eigenständige Seite (automatisch responsiv auf Mobilgeräten) |
-| `mobile.html` | dedizierte Handy-Fassung als Web-App (Zero-Scroll-Layout, Daumenleiste, Vollbild-optimiert) |
+| `mobile.html` | dedizierte Handy-Fassung als Web-App (füllt genau eine Schirmhöhe, Daumenleiste, Hochformat) |
 | `wordpress-block.html` | dasselbe Spiel als `<div>` für den WordPress-Block „Individuelles HTML" |
 | `archiv/stauplan_v1.html`, `_v2.html` | frühere Stände; v2 war zu leicht, praktisch jeder Lauf ging gut aus |
 
@@ -48,6 +49,7 @@ Alles steckt in `index.html`:
 |---|---|
 | Schwierigkeit | `SHIFT_START` (5°, ab hier rutscht loses Gut), `HEEL_FAIL` (13°, Bruch) |
 | Größe des Spielfelds | `BASE_W`/`BASE_H` (Entwurfsmaß 820×580) und `fit()` |
+| Handy-Zoom | `HOLD_VIEW_W`/`HOLD_VIEW_H` (Hafen, auf den Laderaum) und `SHIP_VIEW_W` (Seereise, ganzes Schiff) in `mobile.html` |
 | Schiffsdaten | `KM`, `LIGHTSHIP`, `KG_LIGHT`, `DWT_MAX`, `HOLD_DEPTH` |
 | Wetter | `WEATHER` — drei Stufen mit Faktor |
 | Ladungsarten | `PIECES` — Form, Gewicht, Farbe, Beschreibung |
