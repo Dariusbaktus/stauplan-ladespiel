@@ -1768,72 +1768,82 @@ function drawShipProfile(sc, shipCx, cy, shipSink, visualHeel, isDeparting, depa
   ctx.restore();
 }
 
-/* Kielwasser / Schaumschweif bei Fahrt in die Ferne */
-function drawSeaWake(sc, W, H, shipCx, cy, shipScale, t, departProg){
-  if (departProg < 0.15) return;
-  var wakeProg = Math.min(1, (departProg - 0.15) / 0.85);
-  var sternX = shipCx - 360 * sc * shipScale;
-  var sternY = cy + 12 * sc * shipScale;
+/* Kielwasser / Schaumschweif & Wasserstrahl am Heck */
+function drawSeaWake(sc, W, H, waterY, shipCx, cy, shipScale, visualHeel, t, departProg){
+  if (departProg < 0.12 && state !== 'sea') return;
+  var curSc = sc * (shipScale || 1);
+  var wakeProg = (state === 'sea') ? 1 : Math.min(1, Math.max(0, (departProg - 0.12) / 0.88));
+  var wakeLen = Math.max(90 * curSc, 350 * curSc * wakeProg);
+
+  // Exakte Position des Heckspiegels / Ruders an der Wasserlinie unter Berücksichtigung von Rollen & Krängung
+  var rad = ((visualHeel || 0) * Math.PI) / 180;
+  var cosH = Math.cos(rad);
+  var sinH = Math.sin(rad);
+  var relX = -340 * curSc;
+  var relY = waterY - cy;
+  var sternX = shipCx + relX * cosH - relY * sinH;
+  var sternY = cy + relX * sinH + relY * cosH;
+  var midY = (sternY + waterY) * 0.5;
 
   ctx.save();
+
+  // 1. Ausgebreiteter Schaumschweif / Kielwasser auf der Wasseroberfläche
   ctx.beginPath();
-  ctx.moveTo(sternX, sternY - 4 * sc * shipScale);
-  ctx.quadraticCurveTo(sternX - 110 * sc, sternY + 8 * sc, sternX - 320 * sc * wakeProg, sternY + 28 * sc);
-  ctx.lineTo(sternX - 320 * sc * wakeProg, sternY + 44 * sc);
-  ctx.quadraticCurveTo(sternX - 110 * sc, sternY + 18 * sc, sternX, sternY + 6 * sc * shipScale);
+  // Oberkante des Schweifs (liegt bündig am Heckspiegel an)
+  ctx.moveTo(sternX + 3 * curSc, sternY - 3 * curSc);
+  ctx.quadraticCurveTo(sternX - wakeLen * 0.42, midY - 4 * curSc, sternX - wakeLen, waterY - 2 * curSc);
+  // Hinteres Ende des Schweifs
+  ctx.lineTo(sternX - wakeLen, waterY + 12 * curSc);
+  // Unterkante des Schweifs (zurück zur Hecksohle)
+  ctx.quadraticCurveTo(sternX - wakeLen * 0.45, midY + 11 * curSc, sternX + 3 * curSc, sternY + 7 * curSc);
   ctx.closePath();
 
-  var wg = ctx.createLinearGradient(sternX, 0, sternX - 320 * sc * wakeProg, 0);
-  wg.addColorStop(0, 'rgba(255, 255, 255, 0.75)');
-  wg.addColorStop(0.3, 'rgba(215, 240, 255, 0.42)');
-  wg.addColorStop(0.8, 'rgba(180, 220, 240, 0.15)');
-  wg.addColorStop(1, 'rgba(180, 220, 240, 0.0)');
+  var wg = ctx.createLinearGradient(sternX, 0, sternX - wakeLen, 0);
+  wg.addColorStop(0, 'rgba(255, 255, 255, 0.88)');
+  wg.addColorStop(0.18, 'rgba(220, 245, 255, 0.68)');
+  wg.addColorStop(0.55, 'rgba(165, 220, 245, 0.32)');
+  wg.addColorStop(1, 'rgba(150, 210, 240, 0.0)');
   ctx.fillStyle = wg;
   ctx.fill();
 
-  for (var i = 0; i < 10; i++){
-    var frac = (i + (t * 0.08) % 1) / 10;
-    var bx = sternX - frac * 300 * sc * wakeProg;
-    var by = sternY + (frac * 16 - 3) * sc + Math.sin(t * 0.35 + i) * 4 * sc;
-    var br = (2.5 + frac * 7) * sc;
-    ctx.fillStyle = 'rgba(255, 255, 255, ' + (0.55 - frac * 0.45) + ')';
+  // 2. Aufgewühltes Schraubenwasser & Gischtblasen hinter dem Propeller
+  var bubbleCount = 14;
+  for (var i = 0; i < bubbleCount; i++){
+    var frac = (i + (t * 0.09) % 1) / bubbleCount;
+    var bx = sternX - frac * wakeLen;
+    var waveDisp = Math.sin(t * 0.35 + i * 1.6) * (3.0 * curSc);
+    var by = (sternY * (1 - frac) + waterY * frac) + (frac * 5 - 1) * curSc + waveDisp;
+    var br = (2.4 + frac * 5.2) * curSc;
+    var alpha = (0.80 - frac * 0.65) * Math.min(1, wakeProg * 1.25);
+    ctx.fillStyle = (i % 2 === 0)
+      ? 'rgba(255, 255, 255, ' + alpha + ')'
+      : 'rgba(185, 235, 255, ' + (alpha * 0.85) + ')';
     ctx.beginPath();
     ctx.arc(bx, by, br, 0, 7);
     ctx.fill();
   }
+
+  // 3. Quirlende Gischt-Wellenkämme direkt am Propelleraustritt
+  ctx.strokeStyle = 'rgba(255, 255, 255, ' + (0.80 * Math.min(1, wakeProg * 1.5)) + ')';
+  ctx.lineWidth = 1.8 * curSc;
+  for (var w = 0; w < 3; w++){
+    var wDist = (w * 16 + (t * 8) % 16) * curSc * wakeProg;
+    var arcX = sternX - wDist;
+    var arcY = sternY + (w * 2) * curSc;
+    ctx.beginPath();
+    ctx.arc(arcX, arcY, (8 + w * 6) * curSc, 0.5, 2.7);
+    ctx.stroke();
+  }
+
   ctx.restore();
 }
 
 /* Vordergrundwasser: Lässt den aufgeschnittenen Laderaum im Hafen 100% frei */
 function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shipSink, visualHeel, shipScale, holdX, hy, curHoldW, curHoldH){
   ctx.save();
-  var sternX = shipCx - 365 * sc * (shipScale || 1);
+  var curSc = sc * (shipScale || 1);
 
-  // 1. Kielwasser beim Auslaufen in die Ferne
-  if (isDeparting || state === 'sea'){
-    drawSeaWake(sc, W, H, shipCx, cy, shipScale || 1, t, departProg);
-  }
-
-  // 2. Schäumendes Schraubenwasser am Heck beim ersten Ablegen
-  if (isDeparting && departProg > 0.08 && departProg < 0.6){
-    var washIntensity = Math.min(1, (departProg - 0.08) / 0.25);
-    var washX = sternX + 25 * sc;
-    var washY = waterY + 12 * sc;
-
-    ctx.save();
-    for (var b = 0; b < 16; b++){
-      var bRadius = (7 + b * 2.5) * sc * washIntensity;
-      var bx = washX - b * 11 * sc * washIntensity + Math.sin(t * 0.4 + b) * 10 * sc;
-      var by = washY + Math.cos(t * 0.5 + b * 2) * 7 * sc;
-      ctx.fillStyle = (b % 2 === 0) ? 'rgba(255,255,255,.75)' : 'rgba(175,225,245,.60)';
-      ctx.beginPath();
-      ctx.arc(bx, by, bRadius, 0, 7);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  // 3. Vordergrund-Wasserfläche (im Hafen wird der Laderaum ausgespart)
+  // 1. Vordergrund-Wasserfläche (im Hafen wird der Laderaum ausgespart)
   ctx.save();
   if (state === 'play' || (state === 'over' && msg && msg[2] !== 'sea' && msg[2] !== 'safe')){
     // Counter-winding Clip: gesamte Fläche MINUS Laderaum-Ausschnitt.
@@ -1893,6 +1903,34 @@ function drawWater(sc, W, H, waterY, t, isDeparting, departProg, shipCx, cy, shi
       ctx.quadraticCurveTo(cxPos, cyPos - 4 * sc, cxPos + 12 * sc, cyPos);
       ctx.stroke();
     }
+  }
+
+  // 2. Schäumendes Schraubenwasser am Heck beim ersten Ablegen (auf der Wasseroberfläche)
+  if (isDeparting && departProg > 0.06 && departProg < 0.45){
+    var washIntensity = Math.min(1, (departProg - 0.06) / 0.20) * (1 - Math.max(0, (departProg - 0.25) / 0.20));
+    var rad2 = ((visualHeel || 0) * Math.PI) / 180;
+    var cosH2 = Math.cos(rad2), sinH2 = Math.sin(rad2);
+    var relX2 = -336 * curSc;
+    var relY2 = waterY - cy;
+    var washX = shipCx + relX2 * cosH2 - relY2 * sinH2;
+    var washY = cy + relX2 * sinH2 + relY2 * cosH2;
+
+    ctx.save();
+    for (var b = 0; b < 14; b++){
+      var bRadius = (5 + b * 2.2) * curSc * washIntensity;
+      var bx = washX - b * 10 * curSc * washIntensity + Math.sin(t * 0.4 + b) * 8 * curSc;
+      var by = washY + Math.cos(t * 0.5 + b * 2) * 4 * curSc;
+      ctx.fillStyle = (b % 2 === 0) ? 'rgba(255,255,255,.80)' : 'rgba(175,225,245,.65)';
+      ctx.beginPath();
+      ctx.arc(bx, by, bRadius, 0, 7);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 3. Kielwasser / Schaumschweif liegt bündig am Heckspiegel auf der Wasseroberfläche an
+  if (isDeparting || state === 'sea'){
+    drawSeaWake(sc, W, H, waterY, shipCx, cy, shipScale || 1, visualHeel, t, departProg);
   }
 
   ctx.restore();
